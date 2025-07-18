@@ -67,7 +67,7 @@ export default function Home() {
     const [log, setLog] = useState([]);
 
     const AVATAR_ID = 'Pedro_CasualLook_public';
-    const VOICE_ID = 'ff465a8dab0d42c78f874a135b11d47d';
+    const VOICE_ID = '8661cd40d6c44c709e2d0031c0186ada';
 
     const appendLog = (msg) => setLog((l) => [...l, `[${new Date().toLocaleTimeString()}] ${msg}`]);
 
