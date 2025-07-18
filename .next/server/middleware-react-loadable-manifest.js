@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"index.js -> @heygen/streaming-avatar\":{\"id\":\"index.js -> @heygen/streaming-avatar\",\"files\":[\"static/chunks/node_modules_heygen_streaming-avatar_lib_index_esm_js.js\"]}}"
