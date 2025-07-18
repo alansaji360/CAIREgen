@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
+
 // Styles remain the same
 const styles = {
     container: {
@@ -10,8 +11,8 @@ const styles = {
         textAlign: 'center',
     },
     avatarBox: {
-        width: '640px',
-        height: '480px',
+        width: '480px',
+        height: '840px',
         margin: 'auto',
         borderRadius: '10px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -59,8 +60,8 @@ const styles = {
 };
 
 export default function Home() {
-    const videoRef = useRef(null); 
-    const avatarRef = useRef(null); 
+    const videoRef = useRef(null);
+    const avatarRef = useRef(null);
     const [avatarReady, setAvatarReady] = useState(false);
     const [text, setText] = useState('');
     const [log, setLog] = useState([]);
@@ -86,6 +87,7 @@ export default function Home() {
         }
     };
 
+
     const startStream = async () => {
         if (avatarRef.current) stopStream();
 
@@ -95,32 +97,53 @@ export default function Home() {
             const token = await fetchToken();
             const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
 
+
             // Enable debug mode for more verbose logging from the SDK
             const avatar = new StreamingAvatar({ token, debug: true });
             avatarRef.current = avatar;
+
 
             // NEW: Add listener for the raw WebRTC connection state
             avatar.on(StreamingEvents.ICE_CONNECTION_STATE_CHANGE, (state) => {
                 appendLog(`ICE connection state changed: ${state}`);
             });
 
-            avatar.on(StreamingEvents.AVATAR_MEDIA_STREAM, (stream) => {
+
+            avatar.on(StreamingEvents.STREAM_READY, (event) => {
+                const stream = event.detail;  // This is the actual MediaStream
                 appendLog('✅ Media stream received. Attaching to video element...');
-                if (videoRef.current) videoRef.current.srcObject = stream;
+
+                // Debug: Log stream details to verify it's valid
+                if (stream) {
+                    appendLog(`Stream details - Video tracks: ${stream.getVideoTracks().length}, Audio tracks: ${stream.getAudioTracks().length}`);
+                } else {
+                    appendLog('❌ Stream is null or undefined!');
+                    return;
+                }
+
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    // Optional: Manually play if autoPlay fails in some browsers
+                    videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
+                }
+                appendLog('✅ Avatar stream attached. Ready to speak.');
+                setAvatarReady(true);  // Set ready ONLY after stream is attached
             });
-            
+           
             avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`❌ Stream disconnected: ${e ? e.reason : 'Timeout'}`));
-            
+           
             appendLog('Starting avatar session...');
-            
+           
             await avatar.createStartAvatar({
                 avatarName: AVATAR_ID,
                 voice: { voiceId: VOICE_ID },
                 quality: AvatarQuality.Medium,
             });
 
+
             appendLog('✅ Avatar session started. Ready to speak.');
             setAvatarReady(true);
+
 
         } catch (error) {
             appendLog(`❌ Failed to start avatar: ${error.message || 'Unknown error'}`);
@@ -129,19 +152,21 @@ export default function Home() {
             setAvatarReady(false);
         }
     };
-    
+   
     useEffect(() => {
       return () => { if (avatarRef.current) stopStream(); };
     }, []);
 
+
     const speak = () => {
         if (!avatarRef.current || !avatarReady || !text) return;
-        avatarRef.current.speak({ text });
+        avatarRef.current.speak({ text, task_type: "repeat" });
     };
+
 
     const stopStream = () => {
         if (!avatarRef.current) return;
-        
+       
         if (avatarRef.current) {
             avatarRef.current.stopAvatar();
             avatarRef.current = null;
@@ -151,32 +176,35 @@ export default function Home() {
         appendLog('🛑 Avatar stopped.');
     };
 
+
     const clearChat = () => setLog([]);
+
 
     return (
         <div style={styles.container}>
             <h1 style={{ letterSpacing: 1, marginBottom: "1.3rem" }}>Streaming Avatar</h1>
-            
+           
             <div style={styles.avatarBox}>
                 <video
                     ref={videoRef}
                     autoPlay
                     playsInline
-                    muted
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
             </div>
-            
+           
             <div style={styles.controls}>
                 <button style={styles.button} onClick={startStream}>Start</button>
                 <button style={styles.button} onClick={stopStream}>Stop</button>
                 <button style={styles.button} onClick={clearChat}>Clear</button>
             </div>
 
+
             <div style={styles.controls}>
                 <input type="text" value={text} onChange={e => setText(e.target.value)} placeholder="Type something for the avatar to say..." style={styles.input} />
                 <button style={styles.button} onClick={speak} disabled={!avatarReady} title={!avatarReady ? "Start the stream first" : "Send text to avatar"}>Send</button>
             </div>
+
 
             <div style={styles.log}>
                 {log.map((line, i) => <div key={i}>{line}</div>)}

@@ -7,9 +7,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@heygen/streaming-avatar": "^2.0.16",
+    "jszip": "^3.10.1",
     "next": "^13.4.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "@heygen/streaming-avatar": "^2.0.16"
+    "react-slideshow-image": "^4.3.2"
   }
 }
