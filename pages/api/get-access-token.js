@@ -5,7 +5,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
     
-    const apiKey = process.env.HEYGEN_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_HEYGEN_API_KEY;
     console.log('API key exists:', !!apiKey);
     
     if (!apiKey) {
