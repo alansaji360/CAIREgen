@@ -1,0 +1,30 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Deck {
+  id              String   @id @default(cuid())
+  title           String
+  avatar          String
+  presentationUrl String?  // Add this new optional field
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  slides          Slide[]
+}
+
+model Slide {
+  id        Int      @id @default(autoincrement())
+  image     String   @db.Text
+  alt       String
+  topic     String
+  content   String   @db.Text
+  deckId    String   // Foreign key to Deck
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

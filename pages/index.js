@@ -1,6 +1,7 @@
 'use client'; // Force client-side rendering
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import { Slide } from 'react-slideshow-image';
 import 'react-slideshow-image/dist/styles.css';
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -8,14 +9,21 @@ import Draggable from 'react-draggable';
 
 // Constants
 const AVATAR_ID = 'Pedro_CasualLook_public';
-const VOICE_ID = '8661cd40d6c44c709e2d0031c0186ada';
+const VOICE_IDS = {
+  english: '8661cd40d6c44c709e2d0031c0186ada',
+  spanish: '7dde95cac3cf4d888f8e27db7b44ee75',
+};
+
+const AVATAR_CONFIGS = {
+  'avatar1': { id: 'Pedro_CasualLook_public', name: 'Professional' },
+  'avatar2': { id: 'Anna_public_20240108', name: 'Friendly' },
+  'avatar3': { id: 'josh_lite3_20230714', name: 'Creative' },
+  'avatar4': { id: 'Pedro_CasualLook_public', name: 'Tech' }
+};
+
 const SAMPLE_SLIDE_DATA = [
   { image: 'https://example.com/slide1.jpg', topic: 'Sample', content: 'Sample Slide', alt: 'Slide 1' }
 ];
-const VOICE_IDS = {
-  english: '8661cd40d6c44c709e2d0031c0186ada', // English
-  spanish: '7dde95cac3cf4d888f8e27db7b44ee75',  // Spanish
-};
 
 // Styles
 const styles = {
@@ -30,10 +38,6 @@ const styles = {
     justifyContent: 'space-evenly',
     alignItems: 'flex-start',
     gap: '20px',
-    '@media (maxWidth: 1200px)': {
-      flexDirection: 'column',
-      alignItems: 'center',
-    },
   },
   controlsContainer: {
     width: '100%',
@@ -59,7 +63,7 @@ const styles = {
     backgroundColor: '#f9f9f9',
     flexShrink: 0,
     overflow: 'hidden',
-    position: 'relative', // Required for absolute positioning of PiP overlay
+    position: 'relative',
   },
   slideContainer: {
     width: '100%',
@@ -144,7 +148,6 @@ const styles = {
     border: '1px solid #ccc',
     outline: 'none',
   },
-  // PiP avatar overlay styles (preserves 4:7 aspect ratio)
   avatarOverlayWrapperSmall: {
     position: 'absolute',
     bottom: '20px',
@@ -164,7 +167,7 @@ const styles = {
   avatarRatioBox: {
     position: 'relative',
     width: '100%',
-    paddingTop: '175%', // 7/4 = 1.75 for 4:7 ratio
+    paddingTop: '175%',
     borderRadius: '10px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
     border: '2px solid #fff',
@@ -181,9 +184,75 @@ const styles = {
     display: 'block',
     backgroundColor: '#000',
   },
+  deckInfo: {
+    padding: '1rem',
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    border: '1px solid #dee2e6',
+    marginBottom: '1rem',
+    textAlign: 'center',
+  },
+  loadingScreen: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '18px',
+  },
+  errorScreen: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    fontSize: '18px',
+  },
 };
 
-// Sub-Components
+// Separate Loading Component
+const LoadingScreen = () => (
+  <div style={styles.loadingScreen}>
+    <div style={{ fontSize: '48px', marginBottom: '1rem' }}>⏳</div>
+    <div>Loading presentation...</div>
+  </div>
+);
+
+// Separate Error Component
+const ErrorScreen = ({ error }) => (
+  <div style={styles.errorScreen}>
+    <h2>❌ {error}</h2>
+    <p>The presentation link may be invalid or expired.</p>
+    <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
+      <a
+        href="/upload"
+        style={{
+          color: '#0070f3',
+          textDecoration: 'none',
+          padding: '10px 20px',
+          border: '2px solid #0070f3',
+          borderRadius: '5px'
+        }}
+      >
+        ← Create New Presentation
+      </a>
+      <a
+        href="/"
+        style={{
+          color: '#28a745',
+          textDecoration: 'none',
+          padding: '10px 20px',
+          border: '2px solid #28a745',
+          borderRadius: '5px'
+        }}
+      >
+        🏠 Home
+      </a>
+    </div>
+  </div>
+);
+
+// Sub-Components (REMOVED fullscreen from Controls)
 const Controls = ({
   onStart,
   onStop,
@@ -202,84 +271,29 @@ const Controls = ({
   setSelectedLanguage,
   onAskQuestion,
   questionText,
-  setQuestionText,
-  toggleFullScreen,
-  isFullScreen,
+  setQuestionText
 }) => (
   <div style={styles.controls}>
     <button style={styles.button} onClick={onStart}>Start Stream</button>
     <button style={styles.button} onClick={onStop}>Stop</button>
-    <button
-      style={{
-        ...styles.button,
-        backgroundColor: isPresenting ? '#dc3545' : '#28a745',
-      }}
-      onClick={onStartPresentation}
-    >
+    <button style={{ ...styles.button, backgroundColor: isPresenting ? '#dc3545' : '#28a745' }} onClick={onStartPresentation}>
       {isPresenting ? '🛑 Stop Presentation' : '🎤 Start Presentation'}
     </button>
-    <button
-      style={{
-        ...styles.button,
-        backgroundColor: isPaused ? '#28a745' : '#ffc107',
-      }}
-      onClick={onTogglePause}
-      disabled={!isPresenting}
-    >
+    <button style={{ ...styles.button, backgroundColor: isPaused ? '#28a745' : '#ffc107' }} onClick={onTogglePause} disabled={!isPresenting}>
       {isPaused ? '▶️ Resume' : '⏸️ Pause'}
     </button>
-    <button
-      style={styles.button}
-      onClick={onPrevSlide}
-      disabled={!isPresenting || currentSlide === 0}
-    >
-      ⬅️ Previous
-    </button>
-    <button
-      style={styles.button}
-      onClick={onNextSlide}
-      disabled={!isPresenting || currentSlide >= totalSlides - 1}
-    >
-      Next ➡️
-    </button>
-    <span style={{ margin: '0 10px', fontSize: '1rem' }}>
-      Slide {currentSlide + 1} of {totalSlides}
-    </span>
+    <button style={styles.button} onClick={onPrevSlide} disabled={!isPresenting || currentSlide === 0}>⬅️ Previous</button>
+    <button style={styles.button} onClick={onNextSlide} disabled={!isPresenting || currentSlide >= totalSlides - 1}>Next ➡️</button>
+    <span style={{ margin: '0 10px', fontSize: '1rem' }}>Slide {currentSlide + 1} of {totalSlides}</span>
     <button style={styles.button} onClick={onClearLog}>Clear Log</button>
     <button style={styles.button} onClick={onRegenerate}>Regenerate Script</button>
     <input type="file" accept="application/pdf,.pdf" onChange={onUpload} style={styles.uploadInput} />
-    <select
-      value={selectedLanguage}
-      onChange={(e) => setSelectedLanguage(e.target.value)}
-      style={{ ...styles.input, width: 'auto', marginRight: '10px' }}
-    >
+    <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} style={{ ...styles.input, width: 'auto', marginRight: '10px' }}>
       <option value="en">English</option>
       <option value="es">Spanish</option>
     </select>
-    <input
-      type="text"
-      value={questionText}
-      onChange={(e) => setQuestionText(e.target.value)}
-      placeholder="Ask a question..."
-      style={{ ...styles.input, width: '250px' }}
-      disabled={!isPresenting}
-    />
-    <button
-      style={styles.button}
-      onClick={onAskQuestion}
-      disabled={!isPresenting || !questionText.trim()}
-    >
-      Ask Question
-    </button>
-    <button
-      style={{
-        ...styles.button,
-        backgroundColor: isFullScreen ? '#dc3545' : '#0070f3',
-      }}
-      onClick={toggleFullScreen}
-    >
-      {isFullScreen ? 'Exit Full Screen' : 'Full Screen'}
-    </button>
+    <input type="text" value={questionText} onChange={(e) => setQuestionText(e.target.value)} placeholder="Ask a question..." style={{ ...styles.input, width: '250px' }} disabled={!isPresenting} />
+    <button style={styles.button} onClick={onAskQuestion} disabled={!isPresenting || !questionText.trim()}>Ask Question</button>
   </div>
 );
 
@@ -295,12 +309,7 @@ const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
     <Draggable bounds="parent">
       <div style={wrapperStyle} onDoubleClick={onToggleExpand} title="Double-click to expand/collapse">
         <div style={styles.avatarRatioBox}>
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            style={styles.avatarVideoFill}
-          />
+          <video ref={videoRef} autoPlay playsInline style={styles.avatarVideoFill} />
         </div>
       </div>
     </Draggable>
@@ -309,33 +318,12 @@ const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
 
 const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded }) => (
   <div ref={slideshowRef} style={styles.slideshowBox}>
-    <Slide
-      ref={slideRef}
-      duration={0}
-      transitionDuration={500}
-      infinite={false}
-      indicators={true}
-      arrows={false}
-      pauseOnHover={false}
-      cssClass="slideshow-container"
-      autoplay={false}
-      canSwipe={false}
-      defaultIndex={currentSlide}
-      key={currentSlide + narrationScript.length}
-    >
+    <Slide ref={slideRef} duration={0} transitionDuration={500} infinite={false} indicators={true} arrows={false} pauseOnHover={false} cssClass="slideshow-container" autoplay={false} canSwipe={false} defaultIndex={currentSlide} key={currentSlide + narrationScript.length}>
       {slideData.map((slide, index) => (
         <div key={`slide-${index}`} style={styles.slideContainer}>
           {slide.image ? (
             <div style={styles.slideImageSection}>
-              <img
-                src={slide.image}
-                alt={slide.alt}
-                style={styles.slideImage}
-                onError={(e) => {
-                  console.log(`Failed to load slide image: ${slide.image}`);
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+              <img src={slide.image} alt={slide.alt} style={styles.slideImage} onError={(e) => { console.log(`Failed to load slide image: ${slide.image}`); e.currentTarget.style.display = 'none'; }} />
             </div>
           ) : (
             <div style={styles.slideImageSection}>
@@ -349,56 +337,38 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshow
         </div>
       ))}
     </Slide>
-    {/* PiP avatar overlay */}
-    <AvatarOverlay
-      videoRef={videoRef}
-      isExpanded={isAvatarExpanded}
-      onToggleExpand={onToggleAvatarExpanded}
-    />
+    <AvatarOverlay videoRef={videoRef} isExpanded={isAvatarExpanded} onToggleExpand={onToggleAvatarExpanded} />
   </div>
 );
 
 const SlideMenu = ({ slideData, slideSummaries, currentSlide, goToSlide }) => (
-  <div style={{
-    width: '300px',
-    height: '840px',
-    borderRadius: '10px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    border: '1px solid #ccc',
-    backgroundColor: '#f0f0f0',
-    overflowY: 'auto',
-    padding: '1rem',
-    flexShrink: 0,
-    marginLeft: '20px',
-  }}>
+  <div style={{ width: '300px', height: '840px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #ccc', backgroundColor: '#f0f0f0', overflowY: 'auto', padding: '1rem', flexShrink: 0, marginLeft: '20px' }}>
     <h3 style={{ textAlign: 'center', marginBottom: '1rem' }}>Slide Menu</h3>
     {slideData.map((slide, index) => (
-      <div
-        key={`menu-${index}`}
-        onClick={() => goToSlide(index)}
-        style={{
-          padding: '1rem',
-          marginBottom: '0.5rem',
-          backgroundColor: currentSlide === index ? '#0070f3' : '#fff',
-          color: currentSlide === index ? '#fff' : '#333',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          transition: 'background 0.3s',
-        }}
-      >
+      <div key={`menu-${index}`} onClick={() => goToSlide(index)} style={{ padding: '1rem', marginBottom: '0.5rem', backgroundColor: currentSlide === index ? '#0070f3' : '#fff', color: currentSlide === index ? '#fff' : '#333', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', transition: 'background 0.3s' }}>
         <strong>Slide {index + 1}: {slide.topic}</strong>
-        <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-          {slideSummaries[index] || 'Generating summary...'}
-        </p>
+        <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>{slideSummaries[index] || 'Generating summary...'}</p>
       </div>
     ))}
   </div>
 );
 
+const DeckInfo = ({ deckData }) => (
+  <div style={styles.deckInfo}>
+    <h3 style={{ margin: '0 0 0.5rem 0', color: '#0070f3' }}>📊 {deckData.title}</h3>
+    <p style={{ margin: '0', color: '#666' }}>
+      Avatar: {AVATAR_CONFIGS[deckData.avatar]?.name || 'Default'} |
+      Created: {new Date(deckData.createdAt).toLocaleDateString()} |
+      Slides: {deckData.slides?.length || 0}
+    </p>
+  </div>
+);
+
 // Main Home Component
 export default function Home() {
-  // States and Refs
+  const router = useRouter();
+
+  // ===== ALL HOOKS DECLARED FIRST =====
   const videoRef = useRef(null);
   const avatarRef = useRef(null);
   const slideRef = useRef(null);
@@ -406,7 +376,7 @@ export default function Home() {
   const [avatarReady, setAvatarReady] = useState(false);
   const [logs, setLogs] = useState([]);
   const [narrationScript, setNarrationScript] = useState([]);
-  const [slideData, setSlideData] = useState(SAMPLE_SLIDE_DATA);
+  const [slideData, setSlideData] = useState([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isPresenting, setIsPresenting] = useState(false);
@@ -415,40 +385,17 @@ export default function Home() {
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const [slideSummaries, setSlideSummaries] = useState([]);
   const [uploadedFile, setUploadedFile] = useState(null);
-  const [isFullScreen, setIsFullScreen] = useState(false);
   const [isAvatarExpanded, setIsAvatarExpanded] = useState(false);
+  const [deckData, setDeckData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentAvatarId, setCurrentAvatarId] = useState(AVATAR_ID);
 
-  const appendLog = (msg) => setLogs((l) => [...l, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  const appendLog = useCallback((msg) => setLogs((l) => [...l, `[${new Date().toLocaleTimeString()}] ${msg}`]), []);
 
-  // Auto-load avatar on page load
-  useEffect(() => {
-    startStream();
-  }, []);
-
-  // Full-screen toggle
-  const toggleFullScreen = useCallback(() => {
-    if (!slideshowRef.current) return;
-
-    if (!isFullScreen) {
-      slideshowRef.current.requestFullscreen().catch((err) => appendLog(`❌ Full screen error: ${err.message}`));
-    } else {
-      document.exitFullscreen().catch((err) => appendLog(`❌ Exit full screen error: ${err.message}`));
-    }
-  }, [isFullScreen]);
-
-  useEffect(() => {
-    const handleFullScreenChange = () => setIsFullScreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
-  }, []);
-
-  // Fetch token for avatar
-  const fetchToken = async () => {
+  const fetchToken = useCallback(async () => {
     try {
-      const res = await fetch('/api/get-access-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const res = await fetch('/api/get-access-token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       appendLog(`Token received successfully`);
@@ -457,9 +404,8 @@ export default function Home() {
       appendLog(`❌ Token fetch failed: ${error.message}`);
       throw error;
     }
-  };
+  }, [appendLog]);
 
-  // Generate narration script
   const generateScriptWithGemini = useCallback(async () => {
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
@@ -470,23 +416,11 @@ export default function Home() {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: 'array',
-          items: {
-            type: 'string'
-          }
-        }
-      }
+      generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'array', items: { type: 'string' } } }
     });
 
     const slideSummaries = slideData.map((slide, i) => `Slide ${i + 1}: Topic - ${slide.topic}. Content - ${slide.content}`).join('\n');
-    const prompt = `Generate an engaging narration script in ${selectedLanguage.toUpperCase()} Based on the following slide contents: ${slideSummaries}. 
-                    For each slide, create one in-depth paragraph (4-6 sentences) that explains the topic thoroughly, provides historical or contextual 
-                    background, includes relevant examples or analogies, discusses implications or applications, and ends with key takeaways or questions for reflection. 
-                    Make it informative, academic yet approachable, and suitable for an avatar to narrate as if teaching a class. 
-                    Output ONLY a JSON array of strings, with no additional text, explanations, or Markdown formatting.`;
+    const prompt = `Generate an engaging narration script in ${selectedLanguage.toUpperCase()} Based on the following slide contents: ${slideSummaries}. For each slide, create one in-depth paragraph (4-6 sentences) that explains the topic thoroughly, provides historical or contextual background, includes relevant examples or analogies, discusses implications or applications, and ends with key takeaways or questions for reflection. Make it informative, academic yet approachable, and suitable for an avatar to narrate as if teaching a class. Output ONLY a JSON array of strings, with no additional text, explanations, or Markdown formatting.`;
 
     try {
       const result = await model.generateContent(prompt);
@@ -499,30 +433,317 @@ export default function Home() {
     } catch (error) {
       appendLog(`❌ Gemini error: ${error.message}`);
     }
-  }, [slideData, selectedLanguage]);
+  }, [slideData, selectedLanguage, appendLog]);
 
-  // Auto-regenerate script when slideData or language changes
+  const handleUpload = useCallback((event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      appendLog('❌ Please upload a valid PDF file');
+      return;
+    }
+    setUploadedFile(file);
+  }, [appendLog]);
+
+  const speak = useCallback((scriptText) => {
+    if (!avatarRef.current || !avatarReady || !scriptText) return;
+    avatarRef.current.speak({ text: scriptText, task_type: "repeat" });
+    appendLog(`🗣️ Narrating: ${scriptText.slice(0, 50)}...`);
+  }, [avatarReady, appendLog]);
+
+  const goToSlide = useCallback((slideIndex) => {
+    if (slideIndex < 0 || slideIndex >= slideData.length) return;
+    if (avatarRef.current && avatarReady) {
+      avatarRef.current.interrupt();
+      appendLog('🛑 Interrupted ongoing narration for slide change.');
+    }
+    setCurrentSlide(slideIndex);
+    if (isPresenting && narrationScript[slideIndex] && avatarReady && !isPaused) {
+      speak(narrationScript[slideIndex]);
+    }
+    appendLog(`📊 Moved to slide ${slideIndex + 1}`);
+  }, [slideData.length, isPresenting, narrationScript, avatarReady, isPaused, speak, appendLog]);
+
+  const goToNextSlide = useCallback(() => {
+    const nextIndex = currentSlide + 1;
+    if (nextIndex < slideData.length) {
+      goToSlide(nextIndex);
+    } else {
+      appendLog('📍 Reached end of presentation');
+      setIsPresenting(false);
+    }
+  }, [currentSlide, slideData.length, goToSlide, appendLog]);
+
+  const goToPrevSlide = useCallback(() => {
+    const prevIndex = currentSlide - 1;
+    if (prevIndex >= 0) {
+      goToSlide(prevIndex);
+    }
+  }, [currentSlide, goToSlide]);
+
+  const startPresentation = useCallback(() => {
+    if (!avatarReady) {
+      appendLog('❌ Avatar not ready. Please start the stream first.');
+      return;
+    }
+    if (!narrationScript.length) {
+      appendLog('❌ No narration script available. Please generate or upload a presentation.');
+      return;
+    }
+    setIsPresenting(true);
+    setIsPaused(false);
+    setCurrentSlide(0);
+    goToSlide(0);
+    appendLog('🎤 Presentation started');
+  }, [avatarReady, narrationScript.length, goToSlide, appendLog]);
+
+  const pauseNarration = useCallback(() => {
+    if (!avatarRef.current || !avatarReady) {
+      appendLog('❌ Avatar not ready for pause command');
+      return;
+    }
+    try {
+      avatarRef.current.interrupt();
+      setIsPaused(true);
+      appendLog('⏸️ Narration paused');
+    } catch (error) {
+      appendLog(`❌ Failed to pause narration: ${error.message}`);
+    }
+  }, [avatarReady, appendLog]);
+
+  const resumeNarration = useCallback(() => {
+    if (!avatarRef.current || !avatarReady) {
+      appendLog('❌ Avatar not ready for resume command');
+      return;
+    }
+    if (narrationScript[currentSlide]) {
+      speak(narrationScript[currentSlide]);
+      setIsPaused(false);
+      appendLog('▶️ Narration resumed');
+    }
+  }, [avatarReady, currentSlide, narrationScript, speak, appendLog]);
+
+  const askQuestion = useCallback(async () => {
+    if (!avatarReady || !isPresenting || !questionText.trim()) {
+      appendLog('❌ Cannot ask question: Avatar not ready or not presenting.');
+      return;
+    }
+    if (avatarRef.current) {
+      avatarRef.current.interrupt();
+      setIsPaused(true);
+      appendLog('⏸️ Lecture interrupted for question.');
+    }
+    appendLog(`❓ Question asked: ${questionText}`);
+
+    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      appendLog('❌ Gemini API key missing. Add it to .env');
+      speak('Sorry, I cannot answer questions at this time due to a missing API key.');
+      setQuestionText('');
+      resumeNarration();
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite', generationConfig: { responseMimeType: 'text/plain' } });
+    const currentSlideContent = `Slide ${currentSlide + 1}: Topic - ${slideData[currentSlide]?.topic}. Content - ${slideData[currentSlide]?.content}`;
+    const prompt = `You are an instructor giving a college lecture. A student has asked the following question during a presentation: "${questionText}". The current slide being discussed is: ${currentSlideContent}. Provide a clear, concise, and informative answer (2-4 sentences) in ${selectedLanguage.toUpperCase()}, suitable for an avatar to narrate. End with a smooth transition statement to return to the lecture content, such as "Now, let's get back to our discussion on [topic]."`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const answer = result.response.text().trim();
+      appendLog('✅ Answer received from Gemini.');
+      setIsAnsweringQuestion(true);
+      speak(answer);
+      setQuestionText('');
+      setIsAnsweringQuestion(false);
+    } catch (error) {
+      appendLog(`❌ Gemini error while answering: ${error.message}`);
+      speak('Sorry, I encountered an error while trying to answer your question. Let\'s continue with the lecture.');
+      resumeNarration();
+    }
+  }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog]);
+
+  const togglePause = useCallback(() => {
+    if (isPaused) {
+      resumeNarration();
+    } else {
+      pauseNarration();
+    }
+  }, [isPaused, pauseNarration, resumeNarration]);
+
+  const clearLogs = useCallback(() => setLogs([]), []);
+  const toggleAvatarExpanded = useCallback(() => setIsAvatarExpanded((prev) => !prev), []);
+
+  const startStream = useCallback(async () => {
+    if (avatarRef.current) {
+      appendLog("Session Already Exists");
+      return;
+    }
+    setAvatarReady(false);
+    appendLog('Requesting session token...');
+    try {
+      const token = await fetchToken();
+      const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
+      const avatar = new StreamingAvatar({ token, debug: true });
+      avatarRef.current = avatar;
+
+      avatar.on(StreamingEvents.ICE_CONNECTION_STATE_CHANGE, (state) => appendLog(`ICE connection state changed: ${state}`));
+      avatar.on(StreamingEvents.STREAM_READY, (event) => {
+        const stream = event.detail;
+        appendLog('Media stream received. Attaching to video element...');
+        if (stream) {
+          appendLog(`Stream details - Video tracks: ${stream.getVideoTracks().length}, Audio tracks: ${stream.getAudioTracks().length}`);
+        } else {
+          appendLog('❌ Stream is null or undefined!');
+          return;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
+        }
+        appendLog('Avatar stream attached');
+        setAvatarReady(true);
+      });
+      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`❌ Stream disconnected: ${e ? e.reason : 'Timeout'}`));
+      avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
+        appendLog('🔇 Avatar finished speaking');
+        if (isPresenting && currentSlide < slideData.length - 1) {
+          setTimeout(() => goToNextSlide(), 1500);
+        }
+      });
+
+      appendLog('Starting avatar session...');
+      await avatar.createStartAvatar({
+        avatarName: currentAvatarId,
+        voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.english },
+        quality: AvatarQuality.Medium,
+      });
+      appendLog('✅ Avatar session started');
+      setAvatarReady(true);
+    } catch (error) {
+      appendLog(`❌ Failed to start avatar: ${error.message || 'Unknown error'}`);
+      console.error('Avatar creation error:', error);
+      setAvatarReady(false);
+    }
+  }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isPresenting, currentSlide, slideData.length, goToNextSlide]);
+
+  const stopStream = useCallback(() => {
+    if (!avatarRef.current) return;
+    avatarRef.current.stopAvatar();
+    avatarRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setAvatarReady(false);
+    setIsPresenting(false);
+    setIsPaused(false);
+    appendLog('🛑 Avatar stopped.');
+  }, [appendLog]);
+
+  // Effects
+  useEffect(() => {
+    const loadDeckData = async () => {
+      const { deck: deckId } = router.query;
+
+      if (deckId) {
+        try {
+          appendLog(`Loading presentation: ${deckId}`);
+          setLoading(true);
+
+          const response = await fetch(`/api/decks/${deckId}`);
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+
+            if (response.status === 404) {
+              setError('Presentation not found');
+              appendLog(`❌ Presentation not found: ${deckId}`);
+            } else if (response.status === 400) {
+              setError('Invalid presentation link');
+              appendLog(`❌ Invalid deck ID: ${deckId}`);
+            } else {
+              setError('Failed to load presentation');
+              appendLog(`❌ Failed to load presentation: ${response.status}`);
+            }
+            setLoading(false);
+            return;
+          }
+
+          const deck = await response.json();
+
+          // Validate the deck data structure
+          if (!deck || !deck.slides || !Array.isArray(deck.slides)) {
+            setError('Invalid presentation data');
+            appendLog('❌ Received invalid deck data from server');
+            setLoading(false);
+            return;
+          }
+
+          setDeckData(deck);
+
+          // Transform slides for your component
+          const transformedSlides = deck.slides.map((slide, index) => ({
+            image: slide.image,
+            alt: slide.alt || `Slide ${index + 1}`,
+            topic: slide.topic,
+            content: slide.content
+          }));
+
+          setSlideData(transformedSlides);
+
+          // Set avatar configuration
+          const avatarConfig = AVATAR_CONFIGS[deck.avatar];
+          if (avatarConfig) {
+            setCurrentAvatarId(avatarConfig.id);
+            appendLog(`Using avatar: ${avatarConfig.name}`);
+          }
+
+          appendLog(`✅ Loaded presentation: "${deck.title}" (${deck.slides.length} slides)`);
+
+        } catch (error) {
+          console.error('Error loading deck:', error);
+          setError('Network error - please try again');
+          appendLog(`❌ Network error: ${error.message}`);
+        }
+      } else {
+        // No deck parameter - load default slides or show creation interface
+        try {
+          const response = await fetch('/api/slides');
+          if (response.ok) {
+            const data = await response.json();
+            setSlideData(data);
+            appendLog(`✅ Loaded ${data.length} default slides`);
+          } else {
+            setSlideData(SAMPLE_SLIDE_DATA);
+            appendLog('Using sample slide data');
+          }
+        } catch (error) {
+          console.error('Error fetching default slides:', error);
+          setSlideData(SAMPLE_SLIDE_DATA);
+          appendLog('Using sample slide data');
+        }
+      }
+
+      setLoading(false);
+    };
+
+    if (router.isReady) {
+      loadDeckData();
+    }
+  }, [router.isReady, router.query, appendLog]);
+
+  useEffect(() => {
+    if (!loading && slideData.length > 0) {
+      startStream();
+    }
+  }, [loading, slideData, startStream]);
+
   useEffect(() => {
     if (slideData.length > 0) {
       generateScriptWithGemini();
     }
   }, [slideData, selectedLanguage, generateScriptWithGemini]);
 
-  // Handle PDF upload
-  const handleUpload = useCallback((event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    if (!isPdf) {
-      appendLog('❌ Please upload a valid PDF file');
-      return;
-    }
-
-    setUploadedFile(file);
-  }, []);
-
-  // Process uploaded PDF (client-side)
   useEffect(() => {
     if (!uploadedFile) return;
 
@@ -578,306 +799,98 @@ export default function Home() {
     };
 
     processFile();
-  }, [uploadedFile, generateScriptWithGemini]);
+  }, [uploadedFile, generateScriptWithGemini, appendLog]);
 
-  // Start avatar stream
-  const startStream = async () => {
-    if (avatarRef.current) {
-      appendLog("Session Already Exists");
-      return;
-    }
-
-    setAvatarReady(false);
-    appendLog('Requesting session token...');
-    try {
-      const token = await fetchToken();
-      const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
-
-      const avatar = new StreamingAvatar({ token, debug: true });
-      avatarRef.current = avatar;
-
-      avatar.on(StreamingEvents.ICE_CONNECTION_STATE_CHANGE, (state) => {
-        appendLog(`ICE connection state changed: ${state}`);
-      });
-
-      avatar.on(StreamingEvents.STREAM_READY, (event) => {
-        const stream = event.detail;
-        appendLog('Media stream received. Attaching to video element...');
-        if (stream) {
-          appendLog(`Stream details - Video tracks: ${stream.getVideoTracks().length}, Audio tracks: ${stream.getAudioTracks().length}`);
-        } else {
-          appendLog('❌ Stream is null or undefined!');
-          return;
-        }
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
-        }
-        appendLog('Avatar stream attached');
-        setAvatarReady(true);
-      });
-
-      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`❌ Stream disconnected: ${e ? e.reason : 'Timeout'}`));
-
-      avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        appendLog('🔇 Avatar finished speaking');
-        if (isPresenting && currentSlide < slideData.length - 1) {
-          setTimeout(() => {
-            goToNextSlide();
-          }, 1500);
-        }
-      });
-
-      appendLog('Starting avatar session...');
-
-      await avatar.createStartAvatar({
-        avatarName: AVATAR_ID,
-        voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.english },
-        quality: AvatarQuality.Medium,
-      });
-
-      appendLog('✅ Avatar session started');
-      setAvatarReady(true);
-    } catch (error) {
-      appendLog(`❌ Failed to start avatar: ${error.message || 'Unknown error'}`);
-      console.error('Avatar creation error:', error);
-      setAvatarReady(false);
-    }
-  };
-
-  // Speak function
-  const speak = useCallback((scriptText) => {
-    if (!avatarRef.current || !avatarReady || !scriptText) return;
-    avatarRef.current.speak({ text: scriptText, task_type: "repeat" });
-    appendLog(`🗣️ Narrating: ${scriptText.slice(0, 50)}...`);
-  }, [avatarReady]);
-
-  // Go to slide and speak
-  const goToSlide = useCallback((slideIndex) => {
-    if (slideIndex < 0 || slideIndex >= slideData.length) return;
-
-    if (avatarRef.current && avatarReady) {
-      avatarRef.current.interrupt();
-      appendLog('🛑 Interrupted ongoing narration for slide change.');
-    }
-
-    setCurrentSlide(slideIndex);
-
-    if (isPresenting && narrationScript[slideIndex] && avatarReady && !isPaused) {
-      speak(narrationScript[slideIndex]);
-    }
-
-    appendLog(`📊 Moved to slide ${slideIndex + 1}`);
-  }, [slideData.length, isPresenting, narrationScript, avatarReady, isPaused, speak]);
-
-  const goToNextSlide = useCallback(() => {
-    const nextIndex = currentSlide + 1;
-    if (nextIndex < slideData.length) {
-      goToSlide(nextIndex);
-    } else {
-      appendLog('📍 Reached end of presentation');
-      setIsPresenting(false);
-    }
-  }, [currentSlide, slideData.length, goToSlide]);
-
-  const goToPrevSlide = useCallback(() => {
-    const prevIndex = currentSlide - 1;
-    if (prevIndex >= 0) {
-      goToSlide(prevIndex);
-    }
-  }, [currentSlide, goToSlide]);
-
-  // Start presentation (auto-start speaking without pause)
-  const startPresentation = useCallback(() => {
-    if (!avatarReady) {
-      appendLog('❌ Avatar not ready. Please start the stream first.');
-      return;
-    }
-
-    if (!narrationScript.length) {
-      appendLog('❌ No narration script available. Please generate or upload a presentation.');
-      return;
-    }
-
-    setIsPresenting(true);
-    setIsPaused(false); // Ensure not paused
-    setCurrentSlide(0);
-    goToSlide(0); // This will trigger speak
-    appendLog('🎤 Presentation started');
-  }, [avatarReady, narrationScript.length, goToSlide]);
-
-  const stopStream = () => {
-    if (!avatarRef.current) return;
-
-    avatarRef.current.stopAvatar();
-    avatarRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setAvatarReady(false);
-    setIsPresenting(false);
-    setIsPaused(false);
-    appendLog('🛑 Avatar stopped.');
-  };
-
-  const pauseNarration = useCallback(() => {
-    if (!avatarRef.current || !avatarReady) {
-      appendLog('❌ Avatar not ready for pause command');
-      return;
-    }
-
-    try {
-      avatarRef.current.interrupt();
-      setIsPaused(true);
-      appendLog('⏸️ Narration paused');
-    } catch (error) {
-      appendLog(`❌ Failed to pause narration: ${error.message}`);
-    }
-  }, [avatarReady]);
-
-  const resumeNarration = useCallback(() => {
-    if (!avatarRef.current || !avatarReady) {
-      appendLog('❌ Avatar not ready for resume command');
-      return;
-    }
-
-    if (narrationScript[currentSlide]) {
-      speak(narrationScript[currentSlide]);
-      setIsPaused(false);
-      appendLog('▶️ Narration resumed');
-    }
-  }, [avatarReady, currentSlide, narrationScript, speak]);
-
-  const askQuestion = useCallback(async () => {
-    if (!avatarReady || !isPresenting || !questionText.trim()) {
-      appendLog('❌ Cannot ask question: Avatar not ready or not presenting.');
-      return;
-    }
-
-    if (avatarRef.current) {
-      avatarRef.current.interrupt();
-      setIsPaused(true);
-      appendLog('⏸️ Lecture interrupted for question.');
-    }
-
-    appendLog(`❓ Question asked: ${questionText}`);
-
-    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      appendLog('❌ Gemini API key missing. Add it to .env');
-      speak('Sorry, I cannot answer questions at this time due to a missing API key.');
-      setQuestionText('');
-      resumeNarration();
-      return;
-    }
-
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-      generationConfig: {
-        responseMimeType: 'text/plain'
-      }
-    });
-
-    const currentSlideContent = `Slide ${currentSlide + 1}: Topic - ${slideData[currentSlide]?.topic}. Content - ${slideData[currentSlide]?.content}`;
-    const prompt = `You are an instructor giving a college lecture. A student has asked the following question during a presentation: "${questionText}". 
-    The current slide being discussed is: ${currentSlideContent}. 
-    Provide a clear, concise, and informative answer (2-4 sentences) in ${selectedLanguage.toUpperCase()}, suitable for an avatar to narrate. 
-    End with a smooth transition statement to return to the lecture content, such as "Now, let's get back to our discussion on [topic]."`;
-
-    try {
-      const result = await model.generateContent(prompt);
-      const answer = result.response.text().trim();
-      appendLog('✅ Answer received from Gemini.');
-
-      setIsAnsweringQuestion(true);
-      speak(answer);
-      setQuestionText('');
-      setIsAnsweringQuestion(false);
-    } catch (error) {
-      appendLog(`❌ Gemini error while answering: ${error.message}`);
-      speak('Sorry, I encountered an error while trying to answer your question. Let’s continue with the lecture.');
-      resumeNarration();
-    }
-  }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration]);
-
-  const togglePause = useCallback(() => {
-    if (isPaused) {
-      resumeNarration();
-    } else {
-      pauseNarration();
-    }
-  }, [isPaused, pauseNarration, resumeNarration]);
-
-  const clearLogs = useCallback(() => setLogs([]), []);
-
-  const toggleAvatarExpanded = useCallback(() => {
-    setIsAvatarExpanded((prev) => !prev);
-  }, []);
-
+  // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
     <div>
-      <h1 style={{
-        letterSpacing: 3,
-        marginBottom: "1.3rem",
-        textAlign: 'center',
-        color: '#2c3e50',
-        fontSize: '3rem',
-        fontWeight: '300',
-        fontFamily: '"Helvetica Neue", Arial, sans-serif',
-        position: 'relative'
-      }}>CAIRE<span style={{ color: '#0070f3', fontWeight: 'bold' }}>gen</span>
-        <div style={{
-          width: '60px',
-          height: '3px',
-          backgroundColor: '#0070f3',
-          margin: '0.5rem auto 0 auto'
-        }}></div>
-      </h1>
-      <div style={styles.container}>
-        {/* Removed separate avatar box; now overlaid in slideshow */}
-        <SlideshowNarrator
-          slideData={slideData}
-          narrationScript={narrationScript}
-          currentSlide={currentSlide}
-          slideshowRef={slideshowRef}
-          slideRef={slideRef}
-          videoRef={videoRef}
-          isAvatarExpanded={isAvatarExpanded}
-          onToggleAvatarExpanded={toggleAvatarExpanded}
-        />
-        <SlideMenu
-          slideData={slideData}
-          slideSummaries={slideSummaries}
-          currentSlide={currentSlide}
-          goToSlide={goToSlide}
-        />
-      </div>
-      <div style={styles.controlsContainer}>
-        <div style={styles.fullWidthControls}>
-          <Controls
-            onStart={startStream}
-            onStop={stopStream}
-            onClearLog={clearLogs}
-            onRegenerate={generateScriptWithGemini}
-            onUpload={handleUpload}
-            onTogglePause={togglePause}
-            isPaused={isPaused}
-            onStartPresentation={startPresentation}
-            isPresenting={isPresenting}
-            onNextSlide={goToNextSlide}
-            onPrevSlide={goToPrevSlide}
-            currentSlide={currentSlide}
-            totalSlides={slideData.length}
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            onAskQuestion={askQuestion}
-            questionText={questionText}
-            setQuestionText={setQuestionText}
-            toggleFullScreen={toggleFullScreen}
-            isFullScreen={isFullScreen}
-          />
-          <LogViewer logs={logs} />
-        </div>
-      </div>
+      {loading && <LoadingScreen />}
+      {error && <ErrorScreen error={error} />}
+      {!loading && !error && (
+        <>
+          <h1 style={{
+            letterSpacing: 3,
+            marginBottom: "1.3rem",
+            textAlign: 'center',
+            color: '#2c3e50',
+            fontSize: '3rem',
+            fontWeight: '300',
+            fontFamily: '"Helvetica Neue", Arial, sans-serif',
+            position: 'relative'
+          }}>CAIRE<span style={{ color: '#0070f3', fontWeight: 'bold' }}>gen</span>
+            <div style={{
+              width: '60px',
+              height: '3px',
+              backgroundColor: '#0070f3',
+              margin: '0.5rem auto 0 auto'
+            }}></div>
+          </h1>
+
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <a href="/upload" style={{
+              padding: '8px 16px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              marginRight: '10px'
+            }}>
+              ➕ Create New Deck
+            </a>
+            <a href="/admin" style={{
+              padding: '8px 16px',
+              backgroundColor: '#e27d2aff',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              marginRight: '10px'
+            }}>
+              Admin
+            </a>
+            <a href="/admin" style={{
+              padding: '8px 16px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px'
+            }}>
+              🏠 Home
+            </a>
+          </div>
+
+          {deckData && <DeckInfo deckData={deckData} />}
+
+          <div style={styles.container}>
+            <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} />
+            <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} />
+          </div>
+          <div style={styles.controlsContainer}>
+            <div style={styles.fullWidthControls}>
+              <Controls
+                onStart={startStream}
+                onStop={stopStream}
+                onClearLog={clearLogs}
+                onRegenerate={generateScriptWithGemini}
+                onUpload={handleUpload}
+                onTogglePause={togglePause}
+                isPaused={isPaused}
+                onStartPresentation={startPresentation}
+                isPresenting={isPresenting}
+                onNextSlide={goToNextSlide}
+                onPrevSlide={goToPrevSlide}
+                currentSlide={currentSlide}
+                totalSlides={slideData.length}
+                selectedLanguage={selectedLanguage}
+                setSelectedLanguage={setSelectedLanguage}
+                onAskQuestion={askQuestion}
+                questionText={questionText}
+                setQuestionText={setQuestionText}
+              />
+              <LogViewer logs={logs} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
