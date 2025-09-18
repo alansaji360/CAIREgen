@@ -5,6 +5,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDecks, setSelectedDecks] = useState([]);
+  const [copyFeedback, setCopyFeedback] = useState({}); // For "Copied!" messages per deck
 
   const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
 
@@ -20,8 +22,10 @@ export default function AdminPage() {
       if (!response.ok) throw new Error('Failed to fetch decks');
       
       const data = await response.json();
-      setDecks(data);
-      appendLog(`✅ Loaded ${data.length} decks`);
+      // Sort by createdAt descending for newer first
+      const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setDecks(sortedData);
+      appendLog(`✅ Loaded ${sortedData.length} decks`);
     } catch (error) {
       console.error('Error fetching decks:', error);
       appendLog(`❌ Error loading decks: ${error.message}`);
@@ -44,6 +48,9 @@ export default function AdminPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 405) {
+          throw new Error('API does not support DELETE method—check server configuration');
+        }
         throw new Error(errorData.error || 'Failed to delete deck');
       }
 
@@ -75,6 +82,9 @@ export default function AdminPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 405) {
+          throw new Error('API does not support DELETE method—check server configuration');
+        }
         throw new Error(errorData.error || 'Failed to delete decks');
       }
 
@@ -89,9 +99,20 @@ export default function AdminPage() {
     }
   };
 
-  // Search and selection functionality
-  const [selectedDecks, setSelectedDecks] = useState([]);
-  
+  const copyLink = (deckId) => {
+    const link = `${window.location.origin}/student/?deck=${deckId}`;
+    navigator.clipboard.writeText(link)
+      .then(() => {
+        setCopyFeedback(prev => ({ ...prev, [deckId]: true }));
+        appendLog(`📋 Copied link for deck ${deckId}`);
+        setTimeout(() => setCopyFeedback(prev => ({ ...prev, [deckId]: false })), 2000); // Hide after 2s
+      })
+      .catch((err) => {
+        console.error('Copy failed:', err);
+        appendLog('❌ Failed to copy link—check browser permissions');
+      });
+  };
+
   const filteredDecks = decks.filter(deck =>
     deck.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deck.id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -173,13 +194,15 @@ export default function AdminPage() {
         <div>
           <button
             onClick={selectAll}
+            disabled={loading}
             style={{
               padding: '8px 12px',
               backgroundColor: '#6c757d',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              marginRight: '8px'
+              marginRight: '8px',
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
             {selectedDecks.length === filteredDecks.length ? 'Unselect All' : 'Select All'}
@@ -188,12 +211,14 @@ export default function AdminPage() {
           {selectedDecks.length > 0 && (
             <button
               onClick={() => deleteMultiple(selectedDecks)}
+              disabled={loading}
               style={{
                 padding: '8px 12px',
                 backgroundColor: '#dc3545',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px'
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
               🗑️ Delete Selected ({selectedDecks.length})
@@ -216,7 +241,7 @@ export default function AdminPage() {
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {filteredDecks.map((deck) => (
-            <div
+            <div 
               key={deck.id}
               style={{
                 border: '1px solid #ddd',
@@ -261,9 +286,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                 <a
-                  href={`/?deck=${deck.id}`}
+                  href={`/student/?deck=${deck.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -279,28 +304,46 @@ export default function AdminPage() {
                 </a>
                 
                 <button
-                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/?deck=${deck.id}`)}
+                  onClick={() => copyLink(deck.id)}
                   style={{
                     padding: '6px 12px',
                     backgroundColor: '#6f42c1',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    position: 'relative'
                   }}
                 >
                   📋 Copy Link
+                  {copyFeedback[deck.id] && (
+                    <span style={{ 
+                      position: 'absolute', 
+                      top: '-25px', 
+                      left: '50%', 
+                      transform: 'translateX(-50%)', 
+                      background: '#28a745', 
+                      color: 'white', 
+                      padding: '4px 8px', 
+                      borderRadius: '4px', 
+                      fontSize: '12px'
+                    }}>
+                      Copied!
+                    </span>
+                  )}
                 </button>
                 
                 <button
                   onClick={() => deleteDeck(deck.id, deck.title)}
+                  disabled={loading}
                   style={{
                     padding: '6px 12px',
                     backgroundColor: '#dc3545',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    cursor: loading ? 'not-allowed' : 'pointer'
                   }}
                 >
                   🗑️ Delete

@@ -207,7 +207,7 @@ export default function SlideManager() {
       
       // GENERATE PRESENTATION URL
       if (result.deckId) {
-        const presentationUrl = `${window.location.origin}/?deck=${result.deckId}`;
+        const presentationUrl = `${window.location.origin}/student/?deck=${result.deckId}`;
         setPresentationUrl(presentationUrl);
         appendLog(`🔗 Presentation URL: ${presentationUrl}`);
       }
