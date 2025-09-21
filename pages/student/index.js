@@ -7,14 +7,12 @@ import 'react-slideshow-image/dist/styles.css';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Draggable from 'react-draggable';
 
-
 // Constants
 const AVATAR_ID = 'Pedro_CasualLook_public';
 const VOICE_IDS = {
   english: '8661cd40d6c44c709e2d0031c0186ada',
   spanish: '7dde95cac3cf4d888f8e27db7b44ee75',
 };
-
 
 const AVATAR_CONFIGS = {
   'avatar1': { id: 'Pedro_CasualLook_public', name: 'Professional' },
@@ -23,11 +21,9 @@ const AVATAR_CONFIGS = {
   'avatar4': { id: 'Pedro_CasualLook_public', name: 'Tech' }
 };
 
-
 const SAMPLE_SLIDE_DATA = [
   { image: 'https://example.com/slide1.jpg', topic: 'Sample', content: 'Sample Slide', alt: 'Slide 1' }
 ];
-
 
 // Styles
 const styles = {
@@ -230,8 +226,19 @@ const styles = {
     height: '100vh',
     fontSize: '18px',
   },
+  readyIndicator: {
+    marginTop: '1rem',
+    fontSize: '1.2rem',
+    color: '#28a745', // Green for ready
+    fontWeight: 'bold',
+  },
+  generatingIndicator: {
+    marginTop: '1rem',
+    fontSize: '1.2rem',
+    color: '#ffc107', // Yellow for generating
+    fontWeight: 'bold',
+  },
 };
-
 
 // Separate Loading Component
 const LoadingScreen = () => (
@@ -240,7 +247,6 @@ const LoadingScreen = () => (
     <div>Loading presentation...</div>
   </div>
 );
-
 
 // Separate Error Component
 const ErrorScreen = ({ error }) => (
@@ -275,7 +281,6 @@ const ErrorScreen = ({ error }) => (
     </div>
   </div>
 );
-
 
 const Controls = ({
   onRestart,
@@ -327,13 +332,11 @@ const Controls = ({
   </div>
 );
 
-
 const LogViewer = ({ logs }) => (
   <div style={styles.log}>
     {logs.map((line, i) => <div key={i}>{line}</div>)}
   </div>
 );
-
 
 const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
   const wrapperStyle = isExpanded ? styles.avatarOverlayWrapperLarge : styles.avatarOverlayWrapperSmall;
@@ -347,7 +350,6 @@ const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
     </Draggable>
   );
 };
-
 
 const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded, isFullscreen }) => (
   <div ref={slideshowRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
@@ -398,8 +400,6 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshow
   </div>
 );
 
-
-
 const SlideMenu = ({ slideData, slideSummaries, currentSlide, goToSlide }) => (
   <div style={{ width: '300px', height: '840px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #ccc', backgroundColor: '#f0f0f0', overflowY: 'auto', padding: '1rem', flexShrink: 0, marginLeft: '20px' }}>
     <h3 style={{ textAlign: 'center', marginBottom: '1rem' }}>Slide Menu</h3>
@@ -412,7 +412,6 @@ const SlideMenu = ({ slideData, slideSummaries, currentSlide, goToSlide }) => (
   </div>
 );
 
-
 const DeckInfo = ({ deckData }) => (
   <div style={styles.deckInfo}>
     <h3 style={{ margin: '0 0 0.5rem 0', color: '#0070f3' }}>📊 {deckData.title}</h3>
@@ -424,11 +423,9 @@ const DeckInfo = ({ deckData }) => (
   </div>
 );
 
-
 // Main Home Component
 export default function Home() {
   const router = useRouter();
-
 
   // ===== ALL HOOKS DECLARED FIRST =====
   const videoRef = useRef(null);
@@ -458,7 +455,7 @@ export default function Home() {
   const generatingRef = useRef(false); // Ref to track generating state without causing dependency changes
   const [hasGenerated, setHasGenerated] = useState(false);
   const [introPlaying, setIntroPlaying] = useState(false);
-
+  const [isReady, setIsReady] = useState(false); // NEW: Tracks if script is fully generated
 
   const appendLog = useCallback((msg) => {
     setLogs((l) => {
@@ -467,7 +464,6 @@ export default function Home() {
       return [...l, timestamped];
     });
   }, []);
-
 
   // Fullscreen toggle for slide container
   const toggleFullscreen = useCallback(() => {
@@ -482,7 +478,6 @@ export default function Home() {
     }
   }, [appendLog]);
 
-
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -492,11 +487,9 @@ export default function Home() {
       }
     };
 
-
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
-
 
   const fetchToken = useCallback(async () => {
     try {
@@ -511,30 +504,28 @@ export default function Home() {
     }
   }, [appendLog]);
 
-
   const generateScriptWithGemini = useCallback(async () => {
     if (generatingRef.current) {
       // appendLog('Generation already in progress - skipping');
       return;
     }
+    setIsGenerating(true); // NEW: Set generating flag for UI
     generatingRef.current = true;
     appendLog('Starting script generation...');
-
 
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
       appendLog('❌ Gemini API key missing. Add it to .env');
       generatingRef.current = false;
+      setIsGenerating(false);
       return;
     }
-
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-lite',
       generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'array', items: { type: 'string' } } }
     });
-
 
     // Chunk slide data into batches of 10 (unchanged)
     const batchSize = 10;
@@ -543,9 +534,7 @@ export default function Home() {
       batches.push(slideData.slice(i, i + batchSize));
     }
 
-
     // appendLog(`Generating script in ${batches.length} batches of up to ${batchSize} slides each`);
-
 
     let fullScript = [];
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -553,14 +542,12 @@ export default function Home() {
       const batchSummaries = batch.map((slide, i) => `Slide ${batchIndex * batchSize + i + 1}: Topic - ${slide.topic}. Content - ${slide.content}`).join('\n');
       const prompt = `Generate an engaging narration script in ${selectedLanguage.toUpperCase()} based on the following slide contents: ${batchSummaries}. For each slide, create one in-depth narrative paragraph (4-6 sentences) that expands beyond just restating the bullets by weaving them into a cohesive story: thoroughly explain the topic with historical or contextual background, incorporate relevant examples or analogies, discuss implications or real-world applications, and end with key takeaways or reflective questions. Ensure the tone is informative, academic yet approachable, like a professor teaching a class, and make it flow naturally for spoken narration. Convert all numerical values, hexadecimal notations, addresses, or technical figures to their full spoken-word form for clear pronunciation (e.g., "0x0008" as "hex zero zero zero eight", "1024" as "one thousand twenty-four"). Output ONLY a JSON array of strings, with no additional text, explanations, or Markdown formatting. The array MUST have exactly ${batch.length} items, one for each slide in this batch.`;
 
-
       const attemptGeneration = async (attempt = 1) => {
         try {
           const result = await model.generateContent(prompt);
           let responseText = result.response.text();
           responseText = responseText.replace(/``````/g, '').trim();
           let script = JSON.parse(responseText);
-
 
           // Validate and fix length for this batch (unchanged)
           if (script.length < batch.length) {
@@ -571,7 +558,6 @@ export default function Home() {
             appendLog(`⚠️ Batch ${batchIndex + 1} script too long (${script.length}/${batch.length}) - Truncating`);
             script = script.slice(0, batch.length);
           }
-
 
           return script;
         } catch (error) {
@@ -584,20 +570,18 @@ export default function Home() {
         }
       };
 
-
       const batchScript = await attemptGeneration();
       fullScript = [...fullScript, ...batchScript];
       // appendLog(`✅ Completed batch ${batchIndex + 1}/${batches.length}`);
     }
 
-
     setNarrationScript(fullScript);
     setSlideSummaries(fullScript.map(script => script.slice(0, 100) + '...')); // Simplified summary generation if needed
     appendLog(`✅ Full narration script generated (${fullScript.length} items)`);
     generatingRef.current = false;
+    setIsGenerating(false); // NEW: Clear generating flag
     setHasGenerated(true); // Mark as generated to prevent auto-retriggers
   }, [slideData, selectedLanguage, appendLog]);
-
 
   // Monitor for length mismatch (defensive, though batching should prevent it)
   useEffect(() => {
@@ -607,13 +591,21 @@ export default function Home() {
     }
   }, [slideData.length, narrationScript.length, generateScriptWithGemini, appendLog, isGenerating]);
 
+  // NEW: Effect to set isReady when script matches slideData length
+  useEffect(() => {
+    if (narrationScript.length === slideData.length && hasGenerated && !isGenerating) {
+      setIsReady(true);
+      appendLog('✅ Presentation ready to start');
+    } else {
+      setIsReady(false);
+    }
+  }, [narrationScript.length, slideData.length, hasGenerated, isGenerating, appendLog]);
 
   const speak = useCallback((scriptText) => {
     if (!avatarRef.current || !avatarReady || !scriptText) return;
     avatarRef.current.speak({ text: scriptText, task_type: "repeat" });
     // appendLog(`🗣️ Narrating: ${scriptText.slice(0, 50)}...`);
   }, [avatarReady, appendLog]);
-
 
   const goToSlide = useCallback((slideIndex) => {
     if (slideIndex < 0 || slideIndex >= slideData.length) return;
@@ -628,7 +620,6 @@ export default function Home() {
     // appendLog(`📊 Moved to slide ${slideIndex + 1}`);
   }, [slideData.length, isPresenting, narrationScript, avatarReady, isPaused, speak, appendLog]);
 
-
   const goToNextSlide = useCallback(() => {
     const nextIndex = currentSlide + 1;
     if (nextIndex < slideData.length) {
@@ -639,31 +630,12 @@ export default function Home() {
     }
   }, [currentSlide, slideData.length, goToSlide, appendLog]);
 
-
   const goToPrevSlide = useCallback(() => {
     const prevIndex = currentSlide - 1;
     if (prevIndex >= 0) {
       goToSlide(prevIndex);
     }
   }, [currentSlide, goToSlide]);
-
-
-  const startPresentation = useCallback(() => {
-    if (!avatarReady) {
-      appendLog('❌ Avatar not ready. Please start the stream first.');
-      return;
-    }
-    if (!narrationScript.length) {
-      appendLog('❌ No narration script available. Please generate or upload a presentation.');
-      return;
-    }
-    setIsPresenting(true);
-    setIsPaused(false);
-    setCurrentSlide(0);
-    goToSlide(0);
-    appendLog('🎤 Presentation started');
-  }, [avatarReady, narrationScript.length, goToSlide, appendLog]);
-
 
   const pauseNarration = useCallback(() => {
     if (!avatarRef.current || !avatarReady) {
@@ -679,7 +651,6 @@ export default function Home() {
     }
   }, [avatarReady, appendLog]);
 
-
   const resumeNarration = useCallback(() => {
     if (!avatarRef.current || !avatarReady) {
       appendLog('❌ Avatar not ready for resume command');
@@ -692,52 +663,6 @@ export default function Home() {
     }
   }, [avatarReady, currentSlide, narrationScript, speak, appendLog]);
 
-  
-  const askQuestion = useCallback(async () => {
-    if (!avatarReady || !isPresenting || !questionText.trim()) {
-      appendLog('❌ Cannot ask question: Avatar not ready or not presenting.');
-      return;
-    }
-    if (avatarRef.current) {
-      avatarRef.current.interrupt();
-      setIsPaused(true);
-      appendLog('⏸️ Lecture interrupted for question.');
-    }
-    appendLog(`❓ Question asked: ${questionText}`);
-
-
-    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      appendLog('❌ Gemini API key missing. Add it to .env');
-      speak('Sorry, I cannot answer questions at this time due to a missing API key.');
-      setQuestionText('');
-      resumeNarration();
-      return;
-    }
-
-
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite', generationConfig: { responseMimeType: 'text/plain' } });
-    const currentSlideContent = `Slide ${currentSlide + 1}: Topic - ${slideData[currentSlide]?.topic}. Content - ${slideData[currentSlide]?.content}`;
-    const prompt = `You are an instructor giving a college lecture. A student has asked the following question during a presentation: "${questionText}". The current slide being discussed is: ${currentSlideContent}. Provide a clear, concise, and informative answer (2-4 sentences) in ${selectedLanguage.toUpperCase()}, suitable for an avatar to narrate. End with a smooth transition statement to return to the lecture content, such as "Now, let's get back to our discussion on [topic]."`;
-
-
-    try {
-      const result = await model.generateContent(prompt);
-      const answer = result.response.text().trim();
-      appendLog('✅ Answer received from Gemini.');
-      setIsAnsweringQuestion(true);
-      speak(answer);
-      setQuestionText('');
-      setIsAnsweringQuestion(false);
-    } catch (error) {
-      appendLog(`❌ Gemini error while answering: ${error.message}`);
-      speak('Sorry, I encountered an error while trying to answer your question. Let\'s continue with the lecture.');
-      resumeNarration();
-    }
-  }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog]);
-
-
   const togglePause = useCallback(() => {
     if (isPaused) {
       resumeNarration();
@@ -746,21 +671,33 @@ export default function Home() {
     }
   }, [isPaused, pauseNarration, resumeNarration]);
 
-
   const clearLogs = useCallback(() => setLogs([]), []);
-
 
   const toggleAvatarExpanded = useCallback(() => setIsAvatarExpanded((prev) => !prev), []);
 
+  const stopStream = useCallback(() => {
+    if (!avatarRef.current) return;
+    avatarRef.current.stopAvatar();
+    avatarRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setAvatarReady(false);
+    setIsPresenting(false);
+    setIsPaused(false);
+    appendLog('🛑 Avatar stopped.');
+  }, [appendLog]);
+
+  // NEW: Auto-stop stream on unmount to prevent lingering sessions
+  useEffect(() => {
+    return () => stopStream(); // Cleanup on component unmount
+  }, [stopStream]);
 
   const startStream = useCallback(async () => {
     if (avatarRef.current) {
       // appendLog("Session Already Exists");
       return;
     }
-
-    if (!hasGenerated) {
-      appendLog("Please Wait until the script has been generated");
+    if (!isReady) { // NEW: Block stream start until script is ready
+      appendLog("❌ Script not fully generated. Please wait before starting.");
       return;
     }
 
@@ -771,7 +708,6 @@ export default function Home() {
       const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
       const avatar = new StreamingAvatar({ token, debug: true });
       avatarRef.current = avatar;
-
 
       avatar.on(StreamingEvents.ICE_CONNECTION_STATE_CHANGE, (state) => appendLog(`ICE connection state changed: ${state}`));
       avatar.on(StreamingEvents.STREAM_READY, (event) => {
@@ -804,13 +740,12 @@ export default function Home() {
         }
       });
 
-
       // appendLog('Starting avatar session...');
       await avatar.createStartAvatar({
         avatarName: currentAvatarId,
         voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.english },
         quality: AvatarQuality.Medium,
-        activityIdleTimeout: 600,
+        activityIdleTimeout: 300, // NEW: Reduced to 300s (5 min) to minimize idle charges
       });
       appendLog('✅ Avatar connected');
       setAvatarReady(true);
@@ -819,25 +754,104 @@ export default function Home() {
       console.error('Avatar creation error:', error);
       setAvatarReady(false);
     }
-  }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isPresenting, currentSlide, slideData.length, goToNextSlide]);
+  }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isReady, isPresenting, currentSlide, slideData.length, goToNextSlide]);
 
-
-  const stopStream = useCallback(() => {
-    if (!avatarRef.current) return;
-    avatarRef.current.stopAvatar();
-    avatarRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setAvatarReady(false);
-    setIsPresenting(false);
+  const startPresentation = useCallback(() => {
+    if (!isReady) { // NEW: Block if not ready
+      appendLog('❌ Script not fully generated. Please wait.');
+      return;
+    }
+    if (!avatarReady) {
+      appendLog('❌ Avatar not ready. Starting stream...');
+      startStream(); // Streamline: Auto-start stream if needed
+      return;
+    }
+    if (!narrationScript.length) {
+      appendLog('❌ No narration script available. Please generate or upload a presentation.');
+      return;
+    }
+    setIsPresenting(true);
     setIsPaused(false);
-    appendLog('🛑 Avatar stopped.');
-  }, [appendLog]);
+    setCurrentSlide(0);
+    goToSlide(0);
+    appendLog('🎤 Presentation started');
+  }, [isReady, avatarReady, narrationScript.length, goToSlide, appendLog, startStream]); // Added startStream dependency
 
+  const askQuestion = useCallback(async () => {
+    if (!avatarReady || !isPresenting || !questionText.trim()) {
+      appendLog('❌ Cannot ask question: Avatar not ready or not presenting.');
+      return;
+    }
+    if (avatarRef.current) {
+      avatarRef.current.interrupt();
+      setIsPaused(true);
+      appendLog('⏸️ Lecture interrupted for question.');
+    }
+    appendLog(`❓ Question asked: ${questionText}`);
+
+    console.log('Deck ID (router.query.deck):', router.query.deck);
+    console.log('Question Text:', questionText);
+    console.log('Current Slide:', currentSlide);
+
+    // Store the question in the database
+    const storeQuestion = async () => {
+      try {
+        const response = await fetch('/api/questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deckId: router.query.deck, text: questionText, slideId: currentSlide }),
+        });
+
+        const responseBody = await response.json(); // Always parse body for details
+        if (!response.ok) {
+          console.error('Failed to store question:', response.status, responseBody);
+          appendLog(`❌ Failed to store question: ${response.status} ${responseBody.error || 'Unknown error'}`);
+          return;
+        }
+
+        console.log('Question stored successfully:', responseBody);
+        appendLog('✅ Question stored in database');
+      } catch (error) {
+        console.error('Network error storing question:', error);
+        appendLog(`❌ Network error storing question: ${error.message}`);
+      }
+    };
+    await storeQuestion();
+
+    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!GEMINI_API_KEY) {
+      appendLog('❌ Gemini API key missing. Add it to .env');
+      speak('Sorry, I cannot answer questions at this time due to a missing API key.');
+      setQuestionText('');
+      resumeNarration();
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite', generationConfig: { responseMimeType: 'text/plain' } });
+    const currentSlideContent = `Slide ${currentSlide + 1}: Topic - ${slideData[currentSlide]?.topic}. Content - ${slideData[currentSlide]?.content}`;
+    const prompt = `You are an instructor giving a college lecture. A student has asked the following question during a presentation: "${questionText}". The current slide being discussed is: ${currentSlideContent}. Provide a clear, concise, and informative answer (2-4 sentences) in ${selectedLanguage.toUpperCase()}, suitable for an avatar to narrate. End with a smooth transition statement to return to the lecture content, such as "Now, let's get back to our discussion on [topic]."`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const answer = result.response.text().trim();
+      appendLog('✅ Answer received from Gemini.');
+      setIsAnsweringQuestion(true);
+      speak(answer);
+      setQuestionText('');
+      setIsAnsweringQuestion(false);
+    } catch (error) {
+      appendLog(`❌ Gemini error while answering: ${error.message}`);
+      speak('Sorry, I encountered an error while trying to answer your question. Let\'s continue with the lecture.');
+      resumeNarration();
+    }
+  }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
+
+  // ... (rest of the code remains the same as in the previous full code)
 
   useEffect(() => {
     const loadDeckData = async () => {
       const { deck: deckId } = router.query;
-
 
       if (deckId) {
         if (typeof deckId !== 'string' || deckId.trim() === '') {
@@ -847,18 +861,14 @@ export default function Home() {
           return;
         }
 
-
         try {
           // appendLog(`Loading presentation: ${deckId}`);
           setLoading(true);
 
-
           const response = await fetch(`/api/decks/${deckId}`);
-
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-
 
             if (response.status === 404) {
               setError('Presentation not found');
@@ -874,9 +884,7 @@ export default function Home() {
             return;
           }
 
-
           const deck = await response.json();
-
 
           if (!deck || !deck.slides || !Array.isArray(deck.slides)) {
             setError('Invalid presentation data');
@@ -885,9 +893,7 @@ export default function Home() {
             return;
           }
 
-
           setDeckData(deck);
-
 
           const transformedSlides = deck.slides.map((slide, index) => ({
             image: slide.image,
@@ -896,9 +902,7 @@ export default function Home() {
             content: slide.content
           }));
 
-
           setSlideData(transformedSlides);
-
 
           const avatarConfig = AVATAR_CONFIGS[deck.avatar];
           if (avatarConfig) {
@@ -906,9 +910,7 @@ export default function Home() {
             // appendLog(`Using avatar: ${avatarConfig.name}`);
           }
 
-
           // appendLog(`✅ Loaded presentation: "${deck.title}" (${deck.slides.length} slides)`);
-
 
         } catch (error) {
           appendLog(`❌ Network error: ${error.message}`);
@@ -922,30 +924,20 @@ export default function Home() {
       setLoading(false);
     };
 
-
     if (router.isReady) {
       loadDeckData();
     }
   }, [router.isReady, router.query, appendLog]);
 
-
-  useEffect(() => {
-    if (!loading && slideData.length > 0) {
-      setTimeout(startStream, 500);
-    }
-  }, [loading, slideData, startStream]);
-
-
+  // Kept: Script generation effect (runs after slideData loads, but no auto-stream)
   useEffect(() => {
     if (slideData.length > 0 && !hasGenerated) {
       generateScriptWithGemini();
     }
   }, [slideData, selectedLanguage, generateScriptWithGemini]);
 
-
   useEffect(() => {
     if (!uploadedFile) return;
-
 
     const processFile = async () => {
       appendLog('📂 Parsing PDF file (client-side only)...');
@@ -953,16 +945,13 @@ export default function Home() {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
-
         const arrayBuffer = await uploadedFile.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
 
-
         const total = pdf.numPages;
         const slides = [];
         const targetWidth = 1494;
-
 
         for (let i = 1; i <= total; i++) {
           const page = await pdf.getPage(i);
@@ -970,20 +959,16 @@ export default function Home() {
           const scale = Math.min(targetWidth / viewport.width, 1.6);
           const scaledViewport = page.getViewport({ scale });
 
-
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           canvas.width = scaledViewport.width;
           canvas.height = scaledViewport.height;
 
-
           await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
           const dataUrl = canvas.toDataURL('image/png');
 
-
           const textContent = await page.getTextContent();
           const pageText = textContent.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
-
 
           slides.push({
             image: dataUrl,
@@ -992,7 +977,6 @@ export default function Home() {
             content: pageText,
           });
         }
-
 
         setSlideData(slides);
         setCurrentSlide(0);
@@ -1006,10 +990,8 @@ export default function Home() {
       }
     };
 
-
     processFile();
   }, [uploadedFile, generateScriptWithGemini, appendLog]);
-
 
   const restartStream = useCallback(() => {
     stopStream();
@@ -1017,12 +999,10 @@ export default function Home() {
     appendLog('🔄 Stream restarted');
   }, [stopStream, startStream, appendLog]);
 
-
   const onRegenerate = () => {
     setHasGenerated(false); // Allow regeneration
     generateScriptWithGemini();
   };
-
 
   // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
@@ -1049,9 +1029,7 @@ export default function Home() {
             }}></div>
           </h1>
 
-
           {deckData && <DeckInfo deckData={deckData} />}
-
 
           <div style={styles.container}>
             <div ref={fullscreenRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
@@ -1081,6 +1059,10 @@ export default function Home() {
                 onToggleFullscreen={toggleFullscreen}
                 isFullscreen={isFullscreen}
               />
+              {/* NEW: Readiness Indicator */}
+              <div style={isGenerating ? styles.generatingIndicator : styles.readyIndicator}>
+                {isGenerating ? '⏳ Generating Script...' : (isReady ? '✅ Ready to Start' : 'Waiting for Script...')}
+              </div>
               <LogViewer logs={logs} />
             </div>
           </div>

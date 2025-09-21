@@ -8,23 +8,35 @@ generator client {
 }
 
 model Deck {
-  id              String   @id @default(cuid())
+  id              String     @id @default(cuid())
   title           String
   avatar          String
-  presentationUrl String?  // Add this new optional field
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  presentationUrl String? // Existing optional field
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
   slides          Slide[]
+  questions       Question[] // New relation to questions
 }
 
 model Slide {
-  id        Int      @id @default(autoincrement())
-  image     String   @db.Text
+  id        Int        @id @default(autoincrement())
+  image     String     @db.Text
   alt       String
   topic     String
-  content   String   @db.Text
-  deckId    String   // Foreign key to Deck
-  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  content   String     @db.Text
+  deckId    String // Foreign key to Deck
+  deck      Deck       @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  Question  Question[]
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  text      String   @db.Text
+  deckId    String
+  slideId   Int? // Optional: Link to specific slide if you want per-slide questions
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  slide     Slide?   @relation(fields: [slideId], references: [id], onDelete: SetNull) // Optional relation
 }

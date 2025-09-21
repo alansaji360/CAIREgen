@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default function AdminPage() {
   const [decks, setDecks] = useState([]);
@@ -7,6 +8,9 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDecks, setSelectedDecks] = useState([]);
   const [copyFeedback, setCopyFeedback] = useState({}); // For "Copied!" messages per deck
+  const [expandedDeck, setExpandedDeck] = useState(null); // For showing questions per deck
+  const [deckQuestions, setDeckQuestions] = useState({}); // {deckId: [questions]}
+  const [summaries, setSummaries] = useState({}); // {deckId: summary}
 
   const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
 
@@ -20,7 +24,7 @@ export default function AdminPage() {
     try {
       const response = await fetch('/api/admin/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
-      
+
       const data = await response.json();
       // Sort by createdAt descending for newer first
       const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -40,7 +44,7 @@ export default function AdminPage() {
     }
 
     appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
-    
+
     try {
       const response = await fetch(`/api/admin/decks/${deckId}`, {
         method: 'DELETE'
@@ -57,7 +61,7 @@ export default function AdminPage() {
       // Remove from local state
       setDecks(decks.filter(deck => deck.id !== deckId));
       appendLog(`✅ Successfully deleted "${deckTitle}"`);
-      
+
     } catch (error) {
       console.error('Error deleting deck:', error);
       appendLog(`❌ Error deleting deck: ${error.message}`);
@@ -66,13 +70,13 @@ export default function AdminPage() {
 
   const deleteMultiple = async (selectedIds) => {
     if (selectedIds.length === 0) return;
-    
+
     if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} decks?`)) {
       return;
     }
 
     appendLog(`🗑️ Deleting ${selectedIds.length} decks...`);
-    
+
     try {
       const response = await fetch('/api/admin/decks/bulk-delete', {
         method: 'DELETE',
@@ -92,10 +96,46 @@ export default function AdminPage() {
       setDecks(decks.filter(deck => !selectedIds.includes(deck.id)));
       setSelectedDecks([]);
       appendLog(`✅ Successfully deleted ${selectedIds.length} decks`);
-      
+
     } catch (error) {
       console.error('Error deleting decks:', error);
       appendLog(`❌ Error deleting decks: ${error.message}`);
+    }
+  };
+
+  const fetchQuestions = async (deckId) => {
+    try {
+      const response = await fetch(`/api/admin/questions/${deckId}`);
+      if (!response.ok) throw new Error('Failed to fetch questions');
+      const questions = await response.json();
+      setDeckQuestions((prev) => ({ ...prev, [deckId]: questions }));
+      appendLog(`✅ Loaded ${questions.length} questions for deck ${deckId}`);
+    } catch (error) {
+      appendLog(`❌ Error loading questions: ${error.message}`);
+    }
+  };
+
+  // Gemini summarization
+  const summarizeQuestions = async (deckId, questions) => {
+    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY; // Use your env var
+    if (!GEMINI_API_KEY) {
+      appendLog('❌ Gemini API key missing');
+      return;
+    }
+
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); // Or your preferred model[19][20]
+
+    const questionTexts = questions.map(q => q.text).join('\n');
+    const prompt = `Summarize these student questions from a lecture: "${questionTexts}". Identify the most common topics, areas with the least understanding (e.g., frequent confusion), and key insights for the professor. Keep it concise (3-5 sentences). Output as plain text.`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const summary = result.response.text().trim();
+      setSummaries((prev) => ({ ...prev, [deckId]: summary }));
+      appendLog('✅ Summary generated');
+    } catch (error) {
+      appendLog(`❌ Gemini error: ${error.message}`);
     }
   };
 
@@ -147,21 +187,21 @@ export default function AdminPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h1>🔧 Admin - Deck Management</h1>
         <div>
-          <a href="/upload" style={{ 
-            padding: '8px 16px', 
-            backgroundColor: '#28a745', 
-            color: 'white', 
-            textDecoration: 'none', 
+          <a href="/upload" style={{
+            padding: '8px 16px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            textDecoration: 'none',
             borderRadius: '4px',
             marginRight: '10px'
           }}>
             ➕ Create New Deck
           </a>
-          <a href="/" style={{ 
-            padding: '8px 16px', 
-            backgroundColor: '#007bff', 
-            color: 'white', 
-            textDecoration: 'none', 
+          <a href="/" style={{
+            padding: '8px 16px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            textDecoration: 'none',
             borderRadius: '4px'
           }}>
             🏠 Home
@@ -170,9 +210,9 @@ export default function AdminPage() {
       </div>
 
       {/* Search and Bulk Actions */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         marginBottom: '1rem',
         padding: '1rem',
         backgroundColor: '#f8f9fa',
@@ -190,7 +230,7 @@ export default function AdminPage() {
             width: '300px'
           }}
         />
-        
+
         <div>
           <button
             onClick={selectAll}
@@ -207,7 +247,7 @@ export default function AdminPage() {
           >
             {selectedDecks.length === filteredDecks.length ? 'Unselect All' : 'Select All'}
           </button>
-          
+
           {selectedDecks.length > 0 && (
             <button
               onClick={() => deleteMultiple(selectedDecks)}
@@ -229,8 +269,8 @@ export default function AdminPage() {
 
       {/* Decks List */}
       {filteredDecks.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
+        <div style={{
+          textAlign: 'center',
           padding: '3rem',
           backgroundColor: '#f8f9fa',
           borderRadius: '8px'
@@ -241,7 +281,7 @@ export default function AdminPage() {
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {filteredDecks.map((deck) => (
-            <div 
+            <div
               key={deck.id}
               style={{
                 border: '1px solid #ddd',
@@ -251,6 +291,7 @@ export default function AdminPage() {
                 boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
               }}
             >
+              {/* Existing content: checkbox, title, details */}
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem' }}>
                 <input
                   type="checkbox"
@@ -266,9 +307,9 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '1rem',
                 marginBottom: '1rem'
               }}>
@@ -286,6 +327,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Existing buttons */}
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                 <a
                   href={`/student/?deck=${deck.id}`}
@@ -302,7 +344,7 @@ export default function AdminPage() {
                 >
                   👁️ View
                 </a>
-                
+
                 <button
                   onClick={() => copyLink(deck.id)}
                   style={{
@@ -317,22 +359,22 @@ export default function AdminPage() {
                 >
                   📋 Copy Link
                   {copyFeedback[deck.id] && (
-                    <span style={{ 
-                      position: 'absolute', 
-                      top: '-25px', 
-                      left: '50%', 
-                      transform: 'translateX(-50%)', 
-                      background: '#28a745', 
-                      color: 'white', 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
+                    <span style={{
+                      position: 'absolute',
+                      top: '-25px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: '#28a745',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
                       fontSize: '12px'
                     }}>
                       Copied!
                     </span>
                   )}
                 </button>
-                
+
                 <button
                   onClick={() => deleteDeck(deck.id, deck.title)}
                   disabled={loading}
@@ -348,6 +390,69 @@ export default function AdminPage() {
                 >
                   🗑️ Delete
                 </button>
+              </div>
+
+              {/* NEW: Expand/Collapse for Questions - Insert here, after existing buttons */}
+              <div style={{ marginTop: '1rem' }}>
+                <button
+                  onClick={() => {
+                    if (expandedDeck === deck.id) {
+                      setExpandedDeck(null);
+                    } else {
+                      setExpandedDeck(deck.id);
+                      fetchQuestions(deck.id);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: '#0070f3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {expandedDeck === deck.id ? 'Hide Questions' : 'Show Questions'}
+                </button>
+
+                {expandedDeck === deck.id && deckQuestions[deck.id] && (
+                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+                    <h4>Questions ({deckQuestions[deck.id].length})</h4>
+                    {deckQuestions[deck.id].length === 0 ? (
+                      <p>No questions yet.</p>
+                    ) : (
+                      <ul style={{ listStyleType: 'none', padding: 0 }}>
+                        {deckQuestions[deck.id].map((q) => (
+                          <li key={q.id} style={{ marginBottom: '0.5rem' }}>
+                            {q.text} ({new Date(q.createdAt).toLocaleString()})
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      onClick={() => summarizeQuestions(deck.id, deckQuestions[deck.id])}
+                      disabled={deckQuestions[deck.id].length < 1}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#28a745',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        fontSize: '14px',
+                        cursor: deckQuestions[deck.id].length < 1 ? 'not-allowed' : 'pointer',
+                        marginTop: '0.5rem'
+                      }}
+                    >
+                      Summarize Questions
+                    </button>
+                    {summaries[deck.id] && (
+                      <p style={{ marginTop: '1rem' }}>
+                        <strong>Summary:</strong> {summaries[deck.id]}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
