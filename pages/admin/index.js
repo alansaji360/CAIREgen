@@ -39,7 +39,7 @@ export default function AdminPage() {
       appendLog(`✅ Loaded ${sortedData.length} decks`);
     } catch (error) {
       console.error('Error fetching decks:', error);
-      appendLog(`❌ Error loading decks: ${error.message}`);
+      appendLog(`Error loading decks: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -67,11 +67,11 @@ export default function AdminPage() {
 
       // Remove from local state
       setDecks(decks.filter(deck => deck.id !== deckId));
-      appendLog(`✅ Successfully deleted "${deckTitle}"`);
+      appendLog(`Successfully deleted "${deckTitle}"`);
 
     } catch (error) {
       console.error('Error deleting deck:', error);
-      appendLog(`❌ Error deleting deck: ${error.message}`);
+      appendLog(`Error deleting deck: ${error.message}`);
     }
   };
 
@@ -82,7 +82,7 @@ export default function AdminPage() {
       return;
     }
 
-    appendLog(`🗑️ Deleting ${selectedIds.length} decks...`);
+    appendLog(`Deleting ${selectedIds.length} decks...`);
 
     try {
       const response = await fetch('/api/admin/decks/bulk-delete', {
@@ -102,11 +102,11 @@ export default function AdminPage() {
       // Remove from local state
       setDecks(decks.filter(deck => !selectedIds.includes(deck.id)));
       setSelectedDecks([]);
-      appendLog(`✅ Successfully deleted ${selectedIds.length} decks`);
+      appendLog(`Successfully deleted ${selectedIds.length} decks`);
 
     } catch (error) {
       console.error('Error deleting decks:', error);
-      appendLog(`❌ Error deleting decks: ${error.message}`);
+      appendLog(`Error deleting decks: ${error.message}`);
     }
   };
 
@@ -116,9 +116,9 @@ export default function AdminPage() {
       if (!response.ok) throw new Error('Failed to fetch questions');
       const questions = await response.json();
       setDeckQuestions((prev) => ({ ...prev, [deckId]: questions }));
-      appendLog(`✅ Loaded ${questions.length} questions for deck ${deckId}`);
+      appendLog(`Loaded ${questions.length} questions for deck ${deckId}`);
     } catch (error) {
-      appendLog(`❌ Error loading questions: ${error.message}`);
+      appendLog(`Error loading questions: ${error.message}`);
     }
   };
 
@@ -126,7 +126,7 @@ export default function AdminPage() {
   const deleteQuestion = async (deckId, questionId) => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
 
-    appendLog(`🗑️ Deleting question ${questionId}...`);
+    appendLog(`Deleting question ${questionId}...`);
 
     try {
       const response = await fetch(`/api/admin/questions/${questionId}`, {
@@ -143,10 +143,10 @@ export default function AdminPage() {
         ...prev,
         [deckId]: prev[deckId].filter(q => q.id !== questionId)
       }));
-      appendLog(`✅ Successfully deleted question ${questionId}`);
+      appendLog(`Successfully deleted question ${questionId}`);
     } catch (error) {
       console.error('Error deleting question:', error);
-      appendLog(`❌ Error deleting question: ${error.message}`);
+      appendLog(`Error deleting question: ${error.message}`);
     }
   };
 
@@ -154,7 +154,7 @@ export default function AdminPage() {
   const summarizeQuestions = async (deckId, questions) => {
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY; // Use your env var
     if (!GEMINI_API_KEY) {
-      appendLog('❌ Gemini API key missing');
+      appendLog('Gemini API key missing');
       return;
     }
 
@@ -168,9 +168,9 @@ export default function AdminPage() {
       const result = await model.generateContent(prompt);
       const summary = result.response.text().trim();
       setSummaries((prev) => ({ ...prev, [deckId]: summary }));
-      appendLog('✅ Summary generated');
+      appendLog('Summary generated');
     } catch (error) {
-      appendLog(`❌ Gemini error: ${error.message}`);
+      appendLog(`Gemini error: ${error.message}`);
     }
   };
 
@@ -184,7 +184,7 @@ export default function AdminPage() {
       })
       .catch((err) => {
         console.error('Copy failed:', err);
-        appendLog('❌ Failed to copy link—check browser permissions');
+        appendLog('Failed to copy link—check browser permissions');
       });
   };
 
@@ -223,14 +223,23 @@ export default function AdminPage() {
       <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
         <a href="/upload" style={{
-                padding: '8px 16px',
-                backgroundColor: '#28a745',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '4px',
-              }}>
-                ➕ Create New Deck
-              </a>
+          padding: '8px 16px',
+          backgroundColor: '#28a745',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '4px',
+        }}>
+          Upload
+        </a>
+        <a href="/" style={{
+          padding: '8px 16px',
+          backgroundColor: '#0070f3',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '4px',
+        }}>
+          Home
+        </a>
       </div>
 
       {/* Search and Bulk Actions */}
@@ -285,7 +294,7 @@ export default function AdminPage() {
                 cursor: loading ? 'not-allowed' : 'pointer'
               }}
             >
-              🗑️ Delete Selected ({selectedDecks.length})
+              🗑️ ({selectedDecks.length})
             </button>
           )}
         </div>
@@ -366,7 +375,7 @@ export default function AdminPage() {
                     fontSize: '14px'
                   }}
                 >
-                  👁️ View
+                  View
                 </a>
 
                 <button
@@ -412,7 +421,7 @@ export default function AdminPage() {
                     cursor: loading ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  🗑️ Delete
+                  🗑️
                 </button>
               </div>
 

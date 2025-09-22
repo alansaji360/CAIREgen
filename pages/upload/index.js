@@ -17,17 +17,17 @@ export default function SlideManager() {
   const [manualSlides, setManualSlides] = useState([
     { topic: '', content: '', image: '' }
   ]);
-  const [activeTab, setActiveTab] = useState('pdf'); 
+  const [activeTab, setActiveTab] = useState('pdf');
   const [presentationUrl, setPresentationUrl] = useState('');
-  
+
   const fileInputRef = useRef(null);
 
   // Predefined avatars
   const availableAvatars = [
-    { id: 'avatar1', name: 'Professional', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0Yjc0OGYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
-    { id: 'avatar2', name: 'Friendly', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiNmNGE2NjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
-    { id: 'avatar3', name: 'Creative', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM5YjU5YjYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
-    { id: 'avatar4', name: 'Tech', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyZGE0NGUiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' }
+    { id: 'avatar1', name: '1', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0Yjc0OGYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
+    { id: 'avatar2', name: '2', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiNmNGE2NjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
+    { id: 'avatar3', name: '3', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM5YjU5YjYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
+    { id: 'avatar4', name: '4', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyZGE0NGUiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' }
   ];
 
   const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
@@ -36,7 +36,7 @@ export default function SlideManager() {
   const handlePDFUpload = (event) => {
     const file = event.target.files[0];
     if (!file || file.type !== 'application/pdf') {
-      appendLog('❌ Please upload a valid PDF file');
+      appendLog('Please upload a valid PDF file');
       return;
     }
     setUploadedFile(file);
@@ -49,8 +49,8 @@ export default function SlideManager() {
 
     const processFile = async () => {
       setIsLoading(true);
-      appendLog('📂 Parsing PDF file...');
-      
+      appendLog('Parsing PDF file...');
+
       try {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -59,7 +59,7 @@ export default function SlideManager() {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
         if (pdf.numPages === 0) {
-          appendLog('❌ PDF has no pages');
+          appendLog('PDF has no pages');
           return;
         }
 
@@ -84,19 +84,19 @@ export default function SlideManager() {
           const textContent = await page.getTextContent();
           const pageText = textContent.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
 
-          slides.push({ 
-            image: dataUrl, 
-            alt: `PDF page ${i}`, 
-            topic: `Page ${i}`, 
-            content: pageText 
+          slides.push({
+            image: dataUrl,
+            alt: `PDF page ${i}`,
+            topic: `Page ${i}`,
+            content: pageText
           });
         }
-        
-        appendLog(`✅ PDF parsed successfully. ${slides.length} slides extracted.`);
+
+        appendLog(`PDF parsed successfully. ${slides.length} slides extracted.`);
         setExtractedSlides(slides);
 
       } catch (error) {
-        appendLog(`❌ Error: ${error.message}`);
+        appendLog(`Error: ${error.message}`);
       } finally {
         setIsLoading(false);
         setUploadedFile(null);
@@ -118,7 +118,7 @@ export default function SlideManager() {
   };
 
   const updateManualSlide = (index, field, value) => {
-    const updatedSlides = manualSlides.map((slide, i) => 
+    const updatedSlides = manualSlides.map((slide, i) =>
       i === index ? { ...slide, [field]: value } : slide
     );
     setManualSlides(updatedSlides);
@@ -129,7 +129,7 @@ export default function SlideManager() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      appendLog('❌ Please upload a valid image file');
+      appendLog('Please upload a valid image file');
       return;
     }
 
@@ -165,7 +165,7 @@ export default function SlideManager() {
           content: slide.content
         }));
       } else if (activeTab === 'manual') {
-        const validSlides = manualSlides.filter(slide => 
+        const validSlides = manualSlides.filter(slide =>
           slide.topic.trim() && slide.content.trim()
         );
 
@@ -184,7 +184,7 @@ export default function SlideManager() {
       }
 
       appendLog(`Sending deck data to server...`);
-      
+
       const response = await fetch('/api/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,27 +198,27 @@ export default function SlideManager() {
       if (!response.ok) {
         const contentType = response.headers.get("content-type");
         let errorPayload = "Could not retrieve error details.";
-        
+
         if (contentType && contentType.includes("application/json")) {
           const errorData = await response.json();
           errorPayload = errorData.error || JSON.stringify(errorData);
         } else {
           errorPayload = await response.text();
         }
-        
+
         throw new Error(`Server responded with status ${response.status}. Details: ${errorPayload}`);
       }
 
       const result = await response.json();
-      appendLog(`✅ ${result.message}`);
-      
+      appendLog(`${result.message}`);
+
       // GENERATE PRESENTATION URL
       if (result.deckId) {
         const presentationUrl = `${window.location.origin}/student/?deck=${result.deckId}`;
         setPresentationUrl(presentationUrl);
         appendLog(`🔗 Presentation URL: ${presentationUrl}`);
       }
-      
+
       // Reset form on success
       setDeckTitle('');
       setSelectedAvatar('');
@@ -230,7 +230,7 @@ export default function SlideManager() {
 
     } catch (error) {
       console.error('Slide deck creation error:', error);
-      appendLog(`❌ Error: ${error.message}`);
+      appendLog(`Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -238,29 +238,38 @@ export default function SlideManager() {
 
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '900px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
-      <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>📊 Slide Deck Creator</h1>
+      <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>Deck Upload</h1>
       <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
         <a href="/admin" style={{
-                padding: '8px 16px',
-                backgroundColor: '#e27d2aff',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '4px',
-              }}>
-                Admin
-              </a>
+          padding: '8px 16px',
+          backgroundColor: '#e27d2aff',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '4px',
+        }}>
+          Admin
+        </a>
+        <a href="/" style={{
+          padding: '8px 16px',
+          backgroundColor: '#0070f3',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '4px',
+        }}>
+          Home
+        </a>
       </div>
       {/* Deck Settings */}
-      <div style={{ 
-        marginBottom: '2rem', 
-        padding: '1.5rem', 
+      <div style={{
+        marginBottom: '2rem',
+        padding: '1.5rem',
         borderRadius: '8px',
         backgroundColor: '#f6f7fa',
         boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
       }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>⚙️ Deck Settings</h2>
-        
+        <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Deck Parameters</h2>
+
         {/* Deck Title */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
@@ -301,8 +310,8 @@ export default function SlideManager() {
                   backgroundColor: selectedAvatar === avatar.id ? '#e3f2fd' : 'white'
                 }}
               >
-                <img 
-                  src={avatar.image} 
+                <img
+                  src={avatar.image}
                   alt={avatar.name}
                   style={{ width: '48px', height: '48px', marginBottom: '0.5rem' }}
                 />
@@ -328,7 +337,7 @@ export default function SlideManager() {
               borderTopRightRadius: '6px'
             }}
           >
-            📄 PDF Upload
+            PDF Upload
           </button>
           <button
             onClick={() => setActiveTab('manual')}
@@ -342,27 +351,27 @@ export default function SlideManager() {
               borderTopRightRadius: '0'
             }}
           >
-            ✏️ Manual Entry
+            Manual Entry
           </button>
         </div>
       </div>
 
       {/* Content based on active tab */}
       {activeTab === 'pdf' && (
-        <div style={{ 
-          marginBottom: '2rem', 
-          padding: '1.5rem', 
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.5rem',
           borderRadius: '8px',
           backgroundColor: '#f6f7fa',
           boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>📄 Upload PDF</h2>
-          
-          <input 
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Upload PDF</h2>
+
+          <input
             ref={fileInputRef}
-            type="file" 
-            accept="application/pdf,.pdf" 
-            onChange={handlePDFUpload} 
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={handlePDFUpload}
             disabled={isLoading}
             style={{
               width: '100%',
@@ -373,7 +382,7 @@ export default function SlideManager() {
               boxSizing: 'border-box'
             }}
           />
-          
+
           {extractedSlides.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
               <p style={{ fontWeight: 'bold', color: '#28a745' }}>
@@ -381,14 +390,14 @@ export default function SlideManager() {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                 {extractedSlides.slice(0, 6).map((slide, index) => (
-                  <div key={index} style={{ 
-                    border: '1px solid #ddd', 
-                    borderRadius: '4px', 
+                  <div key={index} style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
                     overflow: 'hidden',
                     backgroundColor: 'white'
                   }}>
-                    <img 
-                      src={slide.image} 
+                    <img
+                      src={slide.image}
                       alt={slide.alt}
                       style={{ width: '100%', height: '120px', objectFit: 'cover' }}
                     />
@@ -412,14 +421,14 @@ export default function SlideManager() {
       )}
 
       {activeTab === 'manual' && (
-        <div style={{ 
-          marginBottom: '2rem', 
-          padding: '1.5rem', 
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.5rem',
           borderRadius: '8px',
           backgroundColor: '#f6f7fa',
           boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>✏️ Manual Slide Entry</h2>
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Manual Slide Entry</h2>
 
           {manualSlides.map((slide, index) => (
             <div key={index} style={{
@@ -505,12 +514,12 @@ export default function SlideManager() {
                 />
                 {slide.image && (
                   <div style={{ marginTop: '0.5rem' }}>
-                    <img 
-                      src={slide.image} 
-                      alt="Preview" 
-                      style={{ 
-                        maxWidth: '200px', 
-                        maxHeight: '150px', 
+                    <img
+                      src={slide.image}
+                      alt="Preview"
+                      style={{
+                        maxWidth: '200px',
+                        maxHeight: '150px',
                         border: '1px solid #ddd',
                         borderRadius: '4px'
                       }}
@@ -555,15 +564,15 @@ export default function SlideManager() {
             opacity: (isLoading || !selectedAvatar || !deckTitle) ? 0.6 : 1
           }}
         >
-          {isLoading ? 'Creating...' : '🚀 Create Slide Deck'}
+          {isLoading ? 'Creating...' : 'Create Slide Deck'}
         </button>
       </div>
 
       {/* SUCCESS MESSAGE WITH PRESENTATION URL */}
       {presentationUrl && (
-        <div style={{ 
-          marginBottom: '2rem', 
-          padding: '1.5rem', 
+        <div style={{
+          marginBottom: '2rem',
+          padding: '1.5rem',
           borderRadius: '8px',
           backgroundColor: '#d4edda',
           textAlign: 'center',
@@ -571,20 +580,20 @@ export default function SlideManager() {
         }}>
           <h2>🎉 Deck Created Successfully!</h2>
           <p style={{ marginBottom: '1rem' }}>Your presentation is ready. Use this link:</p>
-          <div style={{ 
-            padding: '1rem', 
-            backgroundColor: 'white', 
-            borderRadius: '5px', 
+          <div style={{
+            padding: '1rem',
+            backgroundColor: 'white',
+            borderRadius: '5px',
             border: '1px solid #ddd',
             marginBottom: '1rem'
           }}>
-            <a 
-              href={presentationUrl} 
-              target="_blank" 
+            <a
+              href={presentationUrl}
+              target="_blank"
               rel="noopener noreferrer"
-              style={{ 
-                color: '#0070f3', 
-                textDecoration: 'none', 
+              style={{
+                color: '#0070f3',
+                textDecoration: 'none',
                 fontWeight: 'bold',
                 fontSize: '16px'
               }}
@@ -629,9 +638,9 @@ export default function SlideManager() {
       )}
 
       {/* Status Display */}
-      <div style={{ 
-        padding: '1rem', 
-        border: '1px solid #ccc', 
+      <div style={{
+        padding: '1rem',
+        border: '1px solid #ccc',
         borderRadius: '5px',
         backgroundColor: '#e9edf1ff',
         fontFamily: 'monospace',

@@ -412,11 +412,11 @@ const Controls = ({
       <button
         style={{ ...styles.button, backgroundColor: isPresenting ? '#dc3545' : '#28a745' }}
         onClick={onStartPresentation}
-        title={isPresenting ? 'Stop the presentation' : 'Start the presentation'}
+        title={isPresenting ? 'Reset the presentation' : 'Start the presentation'}
         onMouseEnter={(e) => handleMouseEnter(e, isPresenting ? '#dc3545' : '#28a745')}
         onMouseLeave={(e) => handleMouseLeave(e, isPresenting ? '#dc3545' : '#28a745')}
       >
-        {isPresenting ? '🛑 Reset' : '🎤 Start'}
+        {isPresenting ? 'Reset' : 'Start'}
       </button>
 
       <button
