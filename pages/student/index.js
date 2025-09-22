@@ -267,7 +267,7 @@ const styles = {
     backgroundColor: '#ffc107',
   },
   notReady: {
-    backgroundColor: '#6c757d',
+    backgroundColor: '#6d7d6cff',
   },
 };
 
@@ -627,7 +627,7 @@ export default function Home() {
   const slideRef = useRef(null);
   const slideshowRef = useRef(null);
   const fullscreenRef = useRef(null);
-  const [avatarReady, setAvatarReady] = useState(false);
+  const [isAvatarReady, setisAvatarReady] = useState(false);
   const [logs, setLogs] = useState([]);
   const [narrationScript, setNarrationScript] = useState([]);
   const [slideData, setSlideData] = useState([]);
@@ -636,9 +636,7 @@ export default function Home() {
   const [isPresenting, setIsPresenting] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [questionText, setQuestionText] = useState('');
-  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const [slideSummaries, setSlideSummaries] = useState([]);
-  const [uploadedFile, setUploadedFile] = useState(null);
   const [isAvatarExpanded, setIsAvatarExpanded] = useState(false);
   const [deckData, setDeckData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -646,9 +644,10 @@ export default function Home() {
   const [currentAvatarId, setCurrentAvatarId] = useState(AVATAR_ID);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const generatingRef = useRef(false); // tracks generating state without causing dependency changes
+  const generatingRef = useRef(false); 
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
+  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
 
   const appendLog = useCallback((msg) => {
     setLogs((l) => {
@@ -684,7 +683,7 @@ export default function Home() {
 
   const fetchToken = useCallback(async () => {
     try {
-      const res = await fetch('/api/get-access-token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const res = await fetch('/api/heygen/get-access-token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       return data.token;
@@ -703,7 +702,7 @@ export default function Home() {
 
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      appendLog('❌ Gemini API key missing. Add it to .env');
+      appendLog('Gemini API key missing. Add it to .env');
       generatingRef.current = false;
       setIsGenerating(false);
       return;
@@ -746,7 +745,7 @@ export default function Home() {
 
           return script;
         } catch (error) {
-          appendLog(`❌ Gemini error on batch ${batchIndex + 1} attempt ${attempt}: ${error.message}`);
+          appendLog(`Gemini error on batch ${batchIndex + 1} attempt ${attempt}: ${error.message}`);
           if (attempt < 2) {
             appendLog(`Retrying batch ${batchIndex + 1}...`);
             return attemptGeneration(attempt + 1);
@@ -779,34 +778,33 @@ export default function Home() {
   useEffect(() => {
     if (narrationScript.length === slideData.length && hasGenerated && !isGenerating) {
       setIsReady(true);
-      // appendLog('✅ Presentation ready to start');
     } else {
       setIsReady(false);
     }
   }, [narrationScript.length, slideData.length, hasGenerated, isGenerating, appendLog]);
 
   const speak = useCallback((scriptText) => {
-    if (!avatarRef.current || !avatarReady || !scriptText) return;
+    if (!avatarRef.current || !isAvatarReady || !scriptText) return;
     avatarRef.current.speak({ text: scriptText, task_type: "repeat" });
-  }, [avatarReady, appendLog]);
+  }, [isAvatarReady, appendLog]);
 
   const goToSlide = useCallback((slideIndex) => {
     if (slideIndex < 0 || slideIndex >= slideData.length) return;
-    if (avatarRef.current && avatarReady) {
+    if (avatarRef.current && isAvatarReady) {
       avatarRef.current.interrupt();
     }
     setCurrentSlide(slideIndex);
-    if (isPresenting && narrationScript[slideIndex] && avatarReady && !isPaused) {
+    if (isPresenting && narrationScript[slideIndex] && isAvatarReady && !isPaused) {
       speak(narrationScript[slideIndex]);
     }
-  }, [slideData.length, isPresenting, narrationScript, avatarReady, isPaused, speak, appendLog]);
+  }, [slideData.length, isPresenting, narrationScript, isAvatarReady, isPaused, speak, appendLog]);
 
   const goToNextSlide = useCallback(() => {
     const nextIndex = currentSlide + 1;
     if (nextIndex < slideData.length) {
       goToSlide(nextIndex);
     } else {
-      appendLog('📍 Reached end of presentation');
+      appendLog('End of presentation');
       setIsPresenting(false);
     }
   }, [currentSlide, slideData.length, goToSlide, appendLog]);
@@ -819,30 +817,30 @@ export default function Home() {
   }, [currentSlide, goToSlide]);
 
   const pauseNarration = useCallback(() => {
-    if (!avatarRef.current || !avatarReady) {
-      appendLog('❌ Avatar not ready for pause command');
+    if (!avatarRef.current || !isAvatarReady) {
+      appendLog('Avatar not ready for pause command');
       return;
     }
     try {
       avatarRef.current.interrupt();
       setIsPaused(true);
-      appendLog('⏸️ Narration paused');
+      appendLog('Paused');
     } catch (error) {
-      appendLog(`❌ Failed to pause narration: ${error.message}`);
+      appendLog(`Failed to pause narration: ${error.message}`);
     }
-  }, [avatarReady, appendLog]);
+  }, [isAvatarReady, appendLog]);
 
   const resumeNarration = useCallback(() => {
-    if (!avatarRef.current || !avatarReady) {
-      appendLog('❌ Avatar not ready for resume command');
+    if (!avatarRef.current || !isAvatarReady) {
+      appendLog('Avatar not ready for resume command');
       return;
     }
     if (narrationScript[currentSlide]) {
       speak(narrationScript[currentSlide]);
       setIsPaused(false);
-      appendLog('▶️ Narration resumed');
+      appendLog('Resumed');
     }
-  }, [avatarReady, currentSlide, narrationScript, speak, appendLog]);
+  }, [isAvatarReady, currentSlide, narrationScript, speak, appendLog]);
 
   const togglePause = useCallback(() => {
     if (isPaused) {
@@ -861,7 +859,7 @@ export default function Home() {
     avatarRef.current.stopAvatar();
     avatarRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
-    setAvatarReady(false);
+    setisAvatarReady(false);
     setIsPresenting(false);
     setIsPaused(false);
     appendLog('🛑 Avatar stopped.');
@@ -877,11 +875,11 @@ export default function Home() {
       return;
     }
     if (!isReady) { // Block stream start until script is ready
-      appendLog("❌ Script not fully generated. Please wait before starting.");
+      appendLog("Script not fully generated. Please wait before starting.");
       return;
     }
 
-    setAvatarReady(false);
+    setisAvatarReady(false);
     try {
       const token = await fetchToken();
       const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
@@ -893,7 +891,7 @@ export default function Home() {
         const stream = event.detail;
         if (stream) {
         } else {
-          appendLog('❌ Stream is null or undefined!');
+          appendLog('Stream is null or undefined!');
           return;
         }
         if (videoRef.current) {
@@ -901,9 +899,9 @@ export default function Home() {
           videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
           return;
         }
-        setAvatarReady(true);
+        setisAvatarReady(true);
       });
-      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`❌ Stream disconnected: ${e ? e.reason : 'Timeout'}`));
+      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`Stream disconnected: ${e ? e.reason : 'Timeout'}`));
 
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
         if (isPresenting && currentSlide < slideData.length - 1) {
@@ -919,46 +917,46 @@ export default function Home() {
       });
 
       appendLog('Avatar connected');
-      setAvatarReady(true);
+      setisAvatarReady(true);
     } catch (error) {
-      appendLog(`❌ Failed to start avatar: ${error.message || 'Unknown error'}`);
+      appendLog(`Failed to start avatar: ${error.message || 'Unknown error'}`);
       console.error('Avatar creation error:', error);
-      setAvatarReady(false);
+      setisAvatarReady(false);
     }
   }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isReady, isPresenting, currentSlide, slideData.length, goToNextSlide]);
 
   const startPresentation = useCallback(() => {
     if (!isReady) { // Block if not ready
-      appendLog('❌ Script not fully generated. Please wait.');
+      appendLog('Script not fully generated. Please wait.');
       return;
     }
-    if (!avatarReady) {
-      appendLog('❌ Avatar not ready. Starting stream...');
+    if (!isAvatarReady) {
+      appendLog('Avatar not ready. Starting stream...');
       startStream();
       return;
     }
     if (!narrationScript.length) {
-      appendLog('❌ No narration script available. Please generate or upload a presentation.');
+      appendLog('No narration script available. Please generate or upload a presentation.');
       return;
     }
     setIsPresenting(true);
     setIsPaused(false);
     setCurrentSlide(0);
     goToSlide(0);
-    appendLog('🎤 Presentation started');
-  }, [isReady, avatarReady, narrationScript.length, goToSlide, appendLog, startStream]);
+    appendLog('Presentation started');
+  }, [isReady, isAvatarReady, narrationScript.length, goToSlide, appendLog, startStream]);
 
   const askQuestion = useCallback(async () => {
-    if (!avatarReady || !isPresenting || !questionText.trim()) {
-      appendLog('❌ Cannot ask question: Avatar not ready or not presenting.');
+    if (!isAvatarReady || !isPresenting || !questionText.trim()) {
+      appendLog('Cannot ask question: Avatar not ready or not presenting.');
       return;
     }
     if (avatarRef.current) {
       avatarRef.current.interrupt();
       setIsPaused(true);
-      appendLog('⏸️ Lecture interrupted for question.');
+      appendLog('Lecture interrupted for question.');
     }
-    appendLog(`❓ Question asked: ${questionText}`);
+    appendLog(`Question asked: ${questionText}`);
 
     console.log('Deck ID (router.query.deck):', router.query.deck);
     console.log('Question Text:', questionText);
@@ -966,7 +964,7 @@ export default function Home() {
 
     const storeQuestion = async () => {
       try {
-        const response = await fetch('/api/questions', {
+        const response = await fetch('/api/prisma/questions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ deckId: router.query.deck, text: questionText, slideId: currentSlide }),
@@ -975,22 +973,22 @@ export default function Home() {
         const responseBody = await response.json();
         if (!response.ok) {
           console.error('Failed to store question:', response.status, responseBody);
-          appendLog(`❌ Failed to store question: ${response.status} ${responseBody.error || 'Unknown error'}`);
+          appendLog(`Failed to store question: ${response.status} ${responseBody.error || 'Unknown error'}`);
           return;
         }
 
         console.log('Question stored successfully:', responseBody);
-        appendLog('✅ Question stored in database');
+        appendLog('Question stored in database');
       } catch (error) {
         console.error('Network error storing question:', error);
-        appendLog(`❌ Network error storing question: ${error.message}`);
+        appendLog(`Network error storing question: ${error.message}`);
       }
     };
     await storeQuestion();
 
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!GEMINI_API_KEY) {
-      appendLog('❌ Gemini API key missing. Add it to .env');
+      appendLog('Gemini API key missing. Add it to .env');
       speak('Sorry, I cannot answer questions at this time due to a missing API key.');
       setQuestionText('');
       resumeNarration();
@@ -1005,17 +1003,17 @@ export default function Home() {
     try {
       const result = await model.generateContent(prompt);
       const answer = result.response.text().trim();
-      appendLog('✅ Answer received from Gemini.');
+      // appendLog('Answer received from Gemini.');
       setIsAnsweringQuestion(true);
       speak(answer);
       setQuestionText('');
       setIsAnsweringQuestion(false);
     } catch (error) {
-      appendLog(`❌ Gemini error while answering: ${error.message}`);
+      appendLog(`Gemini error while answering: ${error.message}`);
       speak('Sorry, I encountered an error while trying to answer your question. Let\'s continue with the lecture.');
       resumeNarration();
     }
-  }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
+  }, [isAvatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
 
   useEffect(() => {
     const loadDeckData = async () => {
@@ -1024,7 +1022,7 @@ export default function Home() {
       if (deckId) {
         if (typeof deckId !== 'string' || deckId.trim() === '') {
           setError('Invalid presentation link');
-          appendLog('❌ Invalid deck ID format');
+          appendLog('Invalid deck ID format');
           setLoading(false);
           return;
         }
@@ -1032,20 +1030,20 @@ export default function Home() {
         try {
           setLoading(true);
 
-          const response = await fetch(`/api/decks/${deckId}`);
+          const response = await fetch(`/api/prisma/${deckId}`);
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
 
             if (response.status === 404) {
               setError('Presentation not found');
-              appendLog(`❌ Presentation not found: ${deckId}`);
+              appendLog(`Presentation not found: ${deckId}`);
             } else if (response.status === 400) {
               setError('Invalid presentation link');
-              appendLog(`❌ Invalid deck ID: ${deckId}`);
+              appendLog(`Invalid deck ID: ${deckId}`);
             } else {
               setError('Failed to load presentation');
-              appendLog(`❌ Failed to load presentation: ${response.status}`);
+              appendLog(`Failed to load presentation: ${response.status}`);
             }
             setLoading(false);
             return;
@@ -1055,7 +1053,7 @@ export default function Home() {
 
           if (!deck || !deck.slides || !Array.isArray(deck.slides)) {
             setError('Invalid presentation data');
-            appendLog('❌ Received invalid deck data from server');
+            appendLog('Received invalid deck data from server');
             setLoading(false);
             return;
           }
@@ -1077,7 +1075,7 @@ export default function Home() {
           }
 
         } catch (error) {
-          appendLog(`❌ Network error: ${error.message}`);
+          appendLog(`Network error: ${error.message}`);
           setError('Network error - please try again');
         }
       } else {
@@ -1098,67 +1096,10 @@ export default function Home() {
     }
   }, [slideData, selectedLanguage, generateScriptWithGemini]);
 
-  useEffect(() => {
-    if (!uploadedFile) return;
-
-    const processFile = async () => {
-      appendLog('📂 Parsing PDF file (client-side only)...');
-      try {
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-
-        const arrayBuffer = await uploadedFile.arrayBuffer();
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-
-        const total = pdf.numPages;
-        const slides = [];
-        const targetWidth = 1494;
-
-        for (let i = 1; i <= total; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1 });
-          const scale = Math.min(targetWidth / viewport.width, 1.6);
-          const scaledViewport = page.getViewport({ scale });
-
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = scaledViewport.width;
-          canvas.height = scaledViewport.height;
-
-          await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
-          const dataUrl = canvas.toDataURL('image/png');
-
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
-
-          slides.push({
-            image: dataUrl,
-            alt: `PDF page ${i}`,
-            topic: `Page ${i}`,
-            content: pageText,
-          });
-        }
-
-        setSlideData(slides);
-        setCurrentSlide(0);
-        appendLog(`✅ Extracted and rendered ${slides.length} full slide images from PDF`);
-        await generateScriptWithGemini();
-      } catch (error) {
-        appendLog(`❌ PDF parsing error: ${error.message}`);
-        console.error(error);
-      } finally {
-        setUploadedFile(null);
-      }
-    };
-
-    processFile();
-  }, [uploadedFile, generateScriptWithGemini, appendLog]);
-
   const restartStream = useCallback(() => {
     stopStream();
     setTimeout(startStream, 500);
-    appendLog('🔄 Stream restarted');
+    appendLog('Stream restarted');
   }, [stopStream, startStream, appendLog]);
 
   const onRegenerate = () => {
@@ -1205,13 +1146,15 @@ export default function Home() {
               <div
                 style={{
                   ...styles.indicator,
-                  ...(isGenerating ? styles.generating : isReady ? styles.ready : styles.notReady)
+                  ...(isGenerating ? styles.generating : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
                 }}
-                title={isGenerating ? 'Generating Script...' : isReady ? 'Ready to Start' : 'Not Ready - Waiting for Script...'}
+                title={isGenerating  ? 'Generating Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
+
+                
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {isGenerating ? 'Generating' : isReady ? 'Ready' : 'Not Ready'}
+                {isGenerating ? 'Generating' : (isReady && isAvatarReady) ? 'Ready' : 'Press Start'}
               </div>
             </div>
             <div style={styles.fullWidthControls}>

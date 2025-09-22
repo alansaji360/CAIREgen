@@ -601,39 +601,39 @@ export default function SlideManager() {
               {presentationUrl}
             </a>
           </div>
+          <a
+            href={presentationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          >
+            View
+          </a>
           <button
             onClick={() => {
               navigator.clipboard.writeText(presentationUrl);
               appendLog('📋 URL copied to clipboard');
             }}
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
+              padding: '6px 12px',
+              backgroundColor: '#6f42c1',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer',
-              marginRight: '10px'
+              fontSize: '14px',
+              position: 'relative'
             }}
           >
-            📋 Copy URL
+            📋 Copy Link
           </button>
-          <a
-            href={presentationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              textDecoration: 'none',
-              display: 'inline-block'
-            }}
-          >
-            🚀 Open Presentation
-          </a>
+          
         </div>
       )}
 

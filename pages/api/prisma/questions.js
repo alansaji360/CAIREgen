@@ -1,20 +1,18 @@
-import prisma from '../../lib/prisma'; // Adjust path to your Prisma client import
+import prisma from '../../../lib/prisma'; 
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '1mb', // Smaller limit for questions
+      sizeLimit: '1mb', 
     },
   },
 };
 
 export default async function handler(req, res) {
-  // Add CORS headers for development
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -34,7 +32,6 @@ export default async function handler(req, res) {
 
     const { deckId, text, slideId } = req.body;
 
-    // Enhanced validation with logging
     if (!deckId || !text) {
       console.error('Missing required fields:', { hasDeckId: !!deckId, hasText: !!text });
       return res.status(400).json({ error: 'deckId and text are required' });
@@ -42,7 +39,6 @@ export default async function handler(req, res) {
 
     console.log(`Creating question for deck "${deckId}" with text "${text.substring(0, 50)}..." and slideId ${slideId || 'none'}`);
 
-    // Test database connection first
     try {
       await prisma.$connect();
       console.log('Database connection successful');
@@ -54,7 +50,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // NEW: Validate slideId existence (fix for P2003)
     let validSlideId = undefined;
     if (slideId && Number.isInteger(slideId) && slideId > 0) {
       const slideExists = await prisma.slide.findUnique({
@@ -70,7 +65,6 @@ export default async function handler(req, res) {
       console.warn(`Invalid slideId format (${slideId}) skipped`);
     }
 
-    // Prepare data
     const questionData = {
       deckId,
       text,
@@ -79,14 +73,12 @@ export default async function handler(req, res) {
       questionData.slideId = validSlideId;
     }
 
-    // Create the question
     const question = await prisma.question.create({
       data: questionData,
     });
 
-    console.log(`✅ Successfully created question with ID: ${question.id}`);
+    console.log(`Successfully created question with ID: ${question.id}`);
 
-    // Send success response
     return res.status(201).json({
       message: `Successfully created question for deck "${deckId}"`,
       questionId: question.id,
@@ -98,10 +90,9 @@ export default async function handler(req, res) {
       message: error.message,
       stack: error.stack,
       name: error.name,
-      code: error.code // Prisma code, e.g., 'P2003'
+      code: error.code 
     });
 
-    // Handle specific Prisma errors
     if (error.code === 'P2002') {
       return res.status(400).json({
         error: 'Duplicate entry detected',
@@ -116,13 +107,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generic error response
     return res.status(500).json({
       error: 'Failed to save question to database',
       details: error.message
     });
   } finally {
-    // Ensure database connection is closed
     await prisma.$disconnect();
   }
 }

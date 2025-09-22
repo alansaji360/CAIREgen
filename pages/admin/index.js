@@ -29,14 +29,14 @@ export default function AdminPage() {
   const fetchDecks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/decks/decks');
+      const response = await fetch('/api/admin/prisma/decks/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
 
       const data = await response.json();
       // Sort by createdAt descending for newer first
       const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setDecks(sortedData);
-      appendLog(`✅ Loaded ${sortedData.length} decks`);
+      appendLog(`Loaded ${sortedData.length} decks`);
     } catch (error) {
       console.error('Error fetching decks:', error);
       appendLog(`Error loading decks: ${error.message}`);
@@ -53,7 +53,7 @@ export default function AdminPage() {
     appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
 
     try {
-      const response = await fetch(`/api/admin/decks/${deckId}`, {
+      const response = await fetch(`/api/admin/prisma/decks/${deckId}`, {
         method: 'DELETE'
       });
 
@@ -85,7 +85,7 @@ export default function AdminPage() {
     appendLog(`Deleting ${selectedIds.length} decks...`);
 
     try {
-      const response = await fetch('/api/admin/decks/bulk-delete', {
+      const response = await fetch('/api/admin/prisma/decks/bulk-delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds })
@@ -112,7 +112,7 @@ export default function AdminPage() {
 
   const fetchQuestions = async (deckId) => {
     try {
-      const response = await fetch(`/api/admin/questions/${deckId}`);
+      const response = await fetch(`/api/admin/prisma/questions/${deckId}`);
       if (!response.ok) throw new Error('Failed to fetch questions');
       const questions = await response.json();
       setDeckQuestions((prev) => ({ ...prev, [deckId]: questions }));
@@ -129,7 +129,7 @@ export default function AdminPage() {
     appendLog(`Deleting question ${questionId}...`);
 
     try {
-      const response = await fetch(`/api/admin/questions/${questionId}`, {
+      const response = await fetch(`/api/admin/prisma/questions/${questionId}`, {
         method: 'DELETE'
       });
 
