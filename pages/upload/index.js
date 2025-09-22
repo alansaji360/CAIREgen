@@ -1,4 +1,11 @@
 import React, { useState, useRef } from 'react';
+import { Figtree } from 'next/font/google';
+
+// Configure Figtree font
+const figtree = Figtree({
+  subsets: ['latin'],
+  variable: '--font-figtree',
+});
 
 export default function SlideManager() {
   const [status, setStatus] = useState('');
@@ -10,7 +17,7 @@ export default function SlideManager() {
   const [manualSlides, setManualSlides] = useState([
     { topic: '', content: '', image: '' }
   ]);
-  const [activeTab, setActiveTab] = useState('manual'); // 'manual' or 'pdf'
+  const [activeTab, setActiveTab] = useState('pdf'); 
   const [presentationUrl, setPresentationUrl] = useState('');
   
   const fileInputRef = useRef(null);
@@ -230,38 +237,29 @@ export default function SlideManager() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '900px', margin: 'auto' }}>
-      <h1>📊 Slide Deck Creator</h1>
-      <a href="/admin" style={{
-              padding: '8px 16px',
-              backgroundColor: '#e27d2aff',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '4px',
-              marginRight: '10px',
-              marginBottom: '4px'
-            }}>
-              Admin
-            </a>
-            <a href="/" style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '4px',
-              marginBottom: '4px'
-            }}>
-              Home
-            </a>
+    <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '900px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+      <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>📊 Slide Deck Creator</h1>
+      <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
+        <a href="/admin" style={{
+                padding: '8px 16px',
+                backgroundColor: '#e27d2aff',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+              }}>
+                Admin
+              </a>
+      </div>
       {/* Deck Settings */}
       <div style={{ 
         marginBottom: '2rem', 
         padding: '1.5rem', 
-        border: '2px solid #007bff', 
         borderRadius: '8px',
-        backgroundColor: '#f8f9ff'
+        backgroundColor: '#f6f7fa',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
       }}>
-        <h2>⚙️ Deck Settings</h2>
+        <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>⚙️ Deck Settings</h2>
         
         {/* Deck Title */}
         <div style={{ marginBottom: '1.5rem' }}>
@@ -278,7 +276,8 @@ export default function SlideManager() {
               padding: '12px',
               border: '1px solid #ccc',
               borderRadius: '6px',
-              fontSize: '16px'
+              fontSize: '16px',
+              boxSizing: 'border-box'
             }}
           />
         </div>
@@ -318,20 +317,6 @@ export default function SlideManager() {
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0' }}>
           <button
-            onClick={() => setActiveTab('manual')}
-            style={{
-              padding: '12px 24px',
-              border: '1px solid #ddd',
-              borderBottom: activeTab === 'manual' ? '3px solid #28a745' : '1px solid #ddd',
-              backgroundColor: activeTab === 'manual' ? '#f8fff9' : 'white',
-              cursor: 'pointer',
-              borderTopLeftRadius: '6px',
-              borderTopRightRadius: '0'
-            }}
-          >
-            ✏️ Manual Entry
-          </button>
-          <button
             onClick={() => setActiveTab('pdf')}
             style={{
               padding: '12px 24px',
@@ -345,19 +330,33 @@ export default function SlideManager() {
           >
             📄 PDF Upload
           </button>
+          <button
+            onClick={() => setActiveTab('manual')}
+            style={{
+              padding: '12px 24px',
+              border: '1px solid #ddd',
+              borderBottom: activeTab === 'manual' ? '3px solid #28a745' : '1px solid #ddd',
+              backgroundColor: activeTab === 'manual' ? '#f8fff9' : 'white',
+              cursor: 'pointer',
+              borderTopLeftRadius: '6px',
+              borderTopRightRadius: '0'
+            }}
+          >
+            ✏️ Manual Entry
+          </button>
         </div>
       </div>
 
-      {/* Content based on active tab - SAME AS BEFORE */}
+      {/* Content based on active tab */}
       {activeTab === 'pdf' && (
         <div style={{ 
           marginBottom: '2rem', 
           padding: '1.5rem', 
-          border: '2px solid #28a745', 
           borderRadius: '8px',
-          backgroundColor: '#f8fff9'
+          backgroundColor: '#f6f7fa',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          <h2>📄 Upload PDF</h2>
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>📄 Upload PDF</h2>
           
           <input 
             ref={fileInputRef}
@@ -368,9 +367,10 @@ export default function SlideManager() {
             style={{
               width: '100%',
               padding: '12px',
-              border: '2px dashed #28a745',
+              border: '1px solid #ccc',
               borderRadius: '6px',
-              backgroundColor: 'white'
+              backgroundColor: 'white',
+              boxSizing: 'border-box'
             }}
           />
           
@@ -415,11 +415,11 @@ export default function SlideManager() {
         <div style={{ 
           marginBottom: '2rem', 
           padding: '1.5rem', 
-          border: '2px solid #28a745', 
           borderRadius: '8px',
-          backgroundColor: '#f8fff9'
+          backgroundColor: '#f6f7fa',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
-          <h2>✏️ Manual Slide Entry</h2>
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>✏️ Manual Slide Entry</h2>
 
           {manualSlides.map((slide, index) => (
             <div key={index} style={{
@@ -461,7 +461,8 @@ export default function SlideManager() {
                     width: '100%',
                     padding: '8px',
                     border: '1px solid #ccc',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -480,7 +481,8 @@ export default function SlideManager() {
                     padding: '8px',
                     border: '1px solid #ccc',
                     borderRadius: '4px',
-                    resize: 'vertical'
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -497,7 +499,8 @@ export default function SlideManager() {
                     width: '100%',
                     padding: '8px',
                     border: '1px solid #ccc',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    boxSizing: 'border-box'
                   }}
                 />
                 {slide.image && (
@@ -561,10 +564,10 @@ export default function SlideManager() {
         <div style={{ 
           marginBottom: '2rem', 
           padding: '1.5rem', 
-          border: '2px solid #28a745', 
           borderRadius: '8px',
           backgroundColor: '#d4edda',
-          textAlign: 'center'
+          textAlign: 'center',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
         }}>
           <h2>🎉 Deck Created Successfully!</h2>
           <p style={{ marginBottom: '1rem' }}>Your presentation is ready. Use this link:</p>
@@ -630,11 +633,12 @@ export default function SlideManager() {
         padding: '1rem', 
         border: '1px solid #ccc', 
         borderRadius: '5px',
-        backgroundColor: '#f9f9f9',
+        backgroundColor: '#e9edf1ff',
         fontFamily: 'monospace',
         fontSize: '14px',
         maxHeight: '300px',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
       }}>
         <h3>Status:</h3>
         <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>

@@ -29,7 +29,7 @@ const SAMPLE_SLIDE_DATA = [
 const styles = {
   container: {
     padding: '2rem',
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: 'var(--font-figtree), Arial, sans-serif',
     maxWidth: '2000px',
     margin: 'auto',
     textAlign: 'center',
@@ -38,6 +38,9 @@ const styles = {
     justifyContent: 'space-evenly',
     alignItems: 'flex-start',
     gap: '20px',
+    background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)',
+    borderRadius: '15px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.05)',
   },
   controlsContainer: {
     width: '100%',
@@ -46,6 +49,10 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     gap: '20px',
+    backgroundColor: '#f6f7faff',
+    padding: '1rem',
+    borderRadius: '10px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
   },
   fullWidthControls: {
     width: '100%',
@@ -57,13 +64,13 @@ const styles = {
   slideshowBox: {
     width: '1494px',
     height: '840px',
-    borderRadius: '10px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-    border: '1px solid #ccc',
-    backgroundColor: '#f9f9f9',
+    borderRadius: '15px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+    background: 'linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%)',
     flexShrink: 0,
     overflow: 'hidden',
     position: 'relative',
+    transition: 'all 0.3s ease',
   },
   slideshowBoxFullscreen: {
     position: 'fixed',
@@ -71,7 +78,7 @@ const styles = {
     left: 0,
     width: '100vw',
     height: '100vh',
-    backgroundColor: '#f9f9f9',
+    background: 'linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%)',
     zIndex: 9999,
     display: 'flex',
     flexDirection: 'column',
@@ -79,21 +86,22 @@ const styles = {
     alignItems: 'center',
     borderRadius: 0,
     boxShadow: 'none',
-    border: 'none',
     overflow: 'hidden',
+    transition: 'all 0.3s ease',
   },
   slideContainer: {
     width: '100%',
-    height: '100%', // Ensure full height
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '1rem',
     boxSizing: 'border-box',
+    backgroundColor: 'rgba(255,255,255,0.8)',
   },
   slideImageSection: {
-    flex: '1 1 auto', // Changed from fixed 80% to flexible (grows to fill space)
+    flex: '1 1 auto',
     width: '100%',
     display: 'flex',
     justifyContent: 'center',
@@ -103,27 +111,29 @@ const styles = {
   slideImage: {
     maxWidth: '100%',
     maxHeight: '100%',
-    objectFit: 'contain', // Ensures image fits without distortion
-    borderRadius: '0',
+    objectFit: 'contain',
+    borderRadius: '10px',
+    transition: 'transform 0.3s ease',
   },
   slideNarration: {
-    flex: '0 0 auto', // Fixed height for caption, but auto to fit content
-    minHeight: '10%', // Minimum to ensure visibility, adjust as needed
+    flex: '0 0 auto',
+    minHeight: '10%',
     fontSize: '1rem',
     fontStyle: 'italic',
-    color: '#888',
-    backgroundColor: '#f0f0f0',
+    color: '#000',
+    backgroundColor: '#e9ecef',
     padding: '0.5rem 1rem',
     borderRadius: '5px',
-    maxWidth: '100%', // Changed to 100% for fullscreen
+    maxWidth: '100%',
     textAlign: 'center',
     overflowY: 'auto',
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
   },
   controls: {
     marginTop: '1.25rem',
   },
   button: {
-    backgroundColor: '#0070f3',
+    backgroundColor: '#007bff',
     color: '#fff',
     border: 'none',
     borderRadius: '5px',
@@ -133,38 +143,33 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold',
     fontSize: '1rem',
-    transition: 'background 0.3s',
+    transition: 'background 0.3s, transform 0.2s',
+    fontFamily: 'var(--font-figtree), sans-serif',
   },
   input: {
     width: '370px',
     padding: '10px',
     fontSize: '1rem',
     borderRadius: '5px',
-    border: '1px solid #ccc',
+    border: '1px solid #ddd',
     marginRight: '10px',
     outline: 'none',
+    transition: 'border 0.3s',
   },
   log: {
     marginTop: '1.5rem',
-    backgroundColor: '#e9e9e9ff',
+    backgroundColor: '#e9edf1ff',
     borderRadius: '8px',
     padding: '1rem',
     height: '160px',
     overflowY: 'auto',
     textAlign: 'left',
-    fontFamily: 'monospace',
+    fontFamily: 'var(--font-figtree), monospace',
     fontSize: '0.96rem',
     color: '#333',
     width: '100%',
     boxSizing: 'border-box',
-  },
-  uploadInput: {
-    marginTop: '1rem',
-    padding: '10px',
-    fontSize: '1rem',
-    borderRadius: '5px',
-    border: '1px solid #ccc',
-    outline: 'none',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
   },
   avatarOverlayWrapperSmall: {
     position: 'absolute',
@@ -173,6 +178,7 @@ const styles = {
     width: '150px',
     zIndex: 10,
     cursor: 'pointer',
+    transition: 'width 0.3s ease',
   },
   avatarOverlayWrapperLarge: {
     position: 'absolute',
@@ -181,14 +187,15 @@ const styles = {
     width: '200px',
     zIndex: 10,
     cursor: 'pointer',
+    transition: 'width 0.3s ease',
   },
   avatarRatioBox: {
     position: 'relative',
     width: '100%',
     paddingTop: '175%',
     borderRadius: '10px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-    border: '2px solid #fff',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    border: '2px solid #f0f0f0',
     backgroundColor: '#1a1a1a',
     overflow: 'hidden',
   },
@@ -204,11 +211,12 @@ const styles = {
   },
   deckInfo: {
     padding: '1rem',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f6f7faff',
     borderRadius: '8px',
-    border: '1px solid #dee2e6',
+    border: '1px solid #eee',
     marginBottom: '1rem',
     textAlign: 'center',
+    fontFamily: 'var(--font-figtree), Arial, sans-serif',
   },
   loadingScreen: {
     display: 'flex',
@@ -216,7 +224,9 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     height: '100vh',
+    fontFamily: 'var(--font-figtree), Arial',
     fontSize: '18px',
+    background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)',
   },
   errorScreen: {
     display: 'flex',
@@ -224,23 +234,45 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     height: '100vh',
+    fontFamily: 'var(--font-figtree), Arial',
     fontSize: '18px',
+    background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)',
   },
-  readyIndicator: {
+  indicatorContainer: {
     marginTop: '1rem',
-    fontSize: '1.2rem',
-    color: '#28a745', // Green for ready
-    fontWeight: 'bold',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  generatingIndicator: {
-    marginTop: '1rem',
-    fontSize: '1.2rem',
-    color: '#ffc107', // Yellow for generating
+  indicator: {
+    width: '100px',
+    height: '100px',
+    borderRadius: '50%',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: '#fff',
+    fontFamily: 'var(--font-figtree), Arial',
     fontWeight: 'bold',
+    fontSize: '1.1rem',
+    textAlign: 'center',
+    cursor: 'pointer',
+    transition: 'transform 0.3s ease',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  },
+  ready: {
+    backgroundColor: '#28a745',
+  },
+  generating: {
+    backgroundColor: '#ffc107',
+  },
+  notReady: {
+    backgroundColor: '#6c757d',
   },
 };
 
-// Separate Loading Component
+
+// Loading Component
 const LoadingScreen = () => (
   <div style={styles.loadingScreen}>
     <div style={{ fontSize: '48px', marginBottom: '1rem' }}>⏳</div>
@@ -248,7 +280,7 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Separate Error Component
+// Error Component
 const ErrorScreen = ({ error }) => (
   <div style={styles.errorScreen}>
     <h2>❌ {error}</h2>
@@ -301,36 +333,198 @@ const Controls = ({
   setQuestionText,
   onToggleFullscreen,
   isFullscreen,
-  onSkipIntro, // New prop for skipping intro
-  introPlaying // New prop to show/hide skip button
-}) => (
-  <div style={styles.controls}>
-    <button style={styles.button} onClick={onRestart}>Restart Avatar</button>
-    <button style={{ ...styles.button, backgroundColor: isPresenting ? '#dc3545' : '#28a745' }} onClick={onStartPresentation}>
-      {isPresenting ? '🛑' : '🎤'}
-    </button>
-    <button style={{ ...styles.button, backgroundColor: isPaused ? '#28a745' : '#ffc107' }} onClick={onTogglePause} disabled={!isPresenting}>
-      {isPaused ? '▶️ Resume' : '⏸️ Pause'}
-    </button>
-    <button style={styles.button} onClick={onPrevSlide} disabled={!isPresenting || currentSlide === 0}>⬅️ Previous</button>
-    <button style={styles.button} onClick={onNextSlide} disabled={!isPresenting || currentSlide >= totalSlides - 1}>Next ➡️</button>
-    <span style={{ margin: '0 10px', fontSize: '1rem' }}>Slide {currentSlide + 1} of {totalSlides}</span>
-    <button style={styles.button} onClick={onClearLog}>Clear Log</button>
-    <button style={styles.button} onClick={onRegenerate}>Regenerate Script</button>
-    <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)} style={{ ...styles.input, width: 'auto', marginRight: '10px' }}>
-      <option value="en">English</option>
-      <option value="es">Spanish</option>
-    </select>
-    <input type="text" value={questionText} onChange={(e) => setQuestionText(e.target.value)} placeholder="Ask a question..." style={{ ...styles.input, width: '250px' }} disabled={!isPresenting} />
-    <button style={styles.button} onClick={onAskQuestion} disabled={!isPresenting || !questionText.trim()}>Ask Question</button>
-    <button style={styles.button} onClick={onToggleFullscreen}>
-      {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Slide'}
-    </button>
-    {introPlaying && (
-      <button style={styles.button} onClick={onSkipIntro}>Skip Intro</button>
-    )}
-  </div>
-);
+  onSkipIntro,
+  introPlaying
+}) => {
+  const darkenColor = (hexColor, factor = 0.8) => {
+    if (!hexColor || typeof hexColor !== 'string') {
+      return;
+    }
+
+    hexColor = hexColor.replace('#', '');
+    const r = parseInt(hexColor.substring(0, 2), 16);
+    const g = parseInt(hexColor.substring(2, 4), 16);
+    const b = parseInt(hexColor.substring(4, 6), 16);
+
+    const max = Math.max(r, g, b) / 255;
+    const min = Math.min(r, g, b) / 255;
+    let h, s, l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r / 255: h = (g / 255 - b / 255) / d + (g / 255 < b / 255 ? 6 : 0); break;
+        case g / 255: h = (b / 255 - r / 255) / d + 2; break;
+        case b / 255: h = (r / 255 - g / 255) / d + 4; break;
+      }
+      h /= 6;
+    }
+
+    l = Math.max(0, l * factor);
+
+    const rgbToHex = (c) => {
+      const hex = Math.round(c * 255).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    if (s === 0) {
+      const val = Math.round(l * 255);
+      return `#${rgbToHex(val / 255)}${rgbToHex(val / 255)}${rgbToHex(val / 255)}`;
+    }
+
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+
+    const red = hue2rgb(p, q, h + 1 / 3);
+    const green = hue2rgb(p, q, h);
+    const blue = hue2rgb(p, q, h - 1 / 3);
+
+    return `#${rgbToHex(red)}${rgbToHex(green)}${rgbToHex(blue)}`;
+  };
+
+  const handleMouseEnter = (e, originalColor) => {
+    e.currentTarget.style.transform = 'scale(1.05)';
+    e.currentTarget.style.backgroundColor = darkenColor(originalColor, 0.8);
+    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+  };
+
+  const handleMouseLeave = (e, originalColor) => {
+    e.currentTarget.style.transform = 'scale(1)';
+    e.currentTarget.style.backgroundColor = originalColor;
+    e.currentTarget.style.boxShadow = 'none';
+  };
+
+  return (
+    <div style={styles.controls}>
+
+      <button
+        style={{ ...styles.button, backgroundColor: isPresenting ? '#dc3545' : '#28a745' }}
+        onClick={onStartPresentation}
+        title={isPresenting ? 'Stop the presentation' : 'Start the presentation'}
+        onMouseEnter={(e) => handleMouseEnter(e, isPresenting ? '#dc3545' : '#28a745')}
+        onMouseLeave={(e) => handleMouseLeave(e, isPresenting ? '#dc3545' : '#28a745')}
+      >
+        {isPresenting ? '🛑 Reset' : '🎤 Start'}
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
+        onClick={onPrevSlide}
+        disabled={!isPresenting || currentSlide === 0}
+        title="Go to the previous slide"
+        onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
+      >
+        🡰
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: isPaused ? '#28a745' : '#ffc107' }}
+        onClick={onTogglePause}
+        disabled={!isPresenting}
+        title={isPaused ? 'Resume narration' : 'Pause narration'}
+        onMouseEnter={(e) => handleMouseEnter(e, isPaused ? '#28a745' : '#ffc107')}
+        onMouseLeave={(e) => handleMouseLeave(e, isPaused ? '#28a745' : '#ffc107')}
+      >
+        {isPaused ? '▶' : '⏸︎'}
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
+        onClick={onNextSlide}
+        disabled={!isPresenting || currentSlide === totalSlides - 1}
+        title="Go to the next slide"
+        onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
+      >
+        🡲
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#9caac0ff' }}
+        onClick={onToggleFullscreen}
+        title={isFullscreen ? 'Exit fullscreen mode' : 'Enter fullscreen mode for slides'}
+        onMouseEnter={(e) => handleMouseEnter(e, '#9caac0ff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#9caac0ff')}
+      >
+        ⛶
+      </button>
+
+      <select
+        value={selectedLanguage}
+        onChange={(e) => setSelectedLanguage(e.target.value)}
+        style={{ ...styles.input, width: 'auto', marginRight: '10px' }}
+        title="Select narration language"
+      >
+        <option value="en">English</option>
+        <option value="es">Spanish</option>
+      </select>
+      <input
+        type="text"
+        value={questionText}
+        onChange={(e) => setQuestionText(e.target.value)}
+        placeholder="Ask a question..."
+        style={{ ...styles.input, width: '250px' }}
+        disabled={!isPresenting}
+        title="Type a question to ask during the presentation"
+      />
+      <button
+        style={{ ...styles.button, backgroundColor: '#e01f1fff' }}
+        onClick={onAskQuestion}
+        disabled={!isPresenting || !questionText.trim()}
+        title="Submit your question to the avatar"
+        onMouseEnter={(e) => handleMouseEnter(e, '#e01f1fff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#e01f1fff')}
+      >
+        ?
+      </button>
+
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
+        onClick={onRegenerate}
+        title="Regenerate narration script"
+        onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
+      >
+        Regenerate Script
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
+        onClick={onRestart}
+        title="Restart narration"
+        onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
+      >
+        Restart Avatar
+      </button>
+
+      <button
+        style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
+        onClick={onClearLog}
+        title="Clear the log messages"
+        onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
+        onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
+      >
+        🗑️
+      </button>
+
+    </div>
+  );
+};
 
 const LogViewer = ({ logs }) => (
   <div style={styles.log}>
@@ -367,7 +561,7 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshow
         canSwipe={false}
         defaultIndex={currentSlide}
         key={currentSlide + narrationScript.length}
-        style={{ height: '100%', width: '100%' }} // Force full size
+        style={{ height: '100%', width: '100%' }}
       >
         {slideData.map((slide, index) => (
           <div key={`slide-${index}`} style={styles.slideContainer}>
@@ -432,7 +626,7 @@ export default function Home() {
   const avatarRef = useRef(null);
   const slideRef = useRef(null);
   const slideshowRef = useRef(null);
-  const fullscreenRef = useRef(null); // Ref for fullscreen target (slideshowBox)
+  const fullscreenRef = useRef(null);
   const [avatarReady, setAvatarReady] = useState(false);
   const [logs, setLogs] = useState([]);
   const [narrationScript, setNarrationScript] = useState([]);
@@ -451,21 +645,19 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [currentAvatarId, setCurrentAvatarId] = useState(AVATAR_ID);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false); // New flag to prevent multiple generations
-  const generatingRef = useRef(false); // Ref to track generating state without causing dependency changes
+  const [isGenerating, setIsGenerating] = useState(false);
+  const generatingRef = useRef(false); // tracks generating state without causing dependency changes
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [introPlaying, setIntroPlaying] = useState(false);
-  const [isReady, setIsReady] = useState(false); // NEW: Tracks if script is fully generated
+  const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
 
   const appendLog = useCallback((msg) => {
     setLogs((l) => {
       const timestamped = `[${new Date().toLocaleTimeString()}] ${msg}`;
-      if (l.length > 0 && l[l.length - 1] === timestamped) return l; // Skip exact duplicate (though timestamps differ, approximate)
+      if (l.length > 0 && l[l.length - 1] === timestamped) return l;
       return [...l, timestamped];
     });
   }, []);
 
-  // Fullscreen toggle for slide container
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       fullscreenRef.current?.requestFullscreen().catch((err) => {
@@ -482,7 +674,6 @@ export default function Home() {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
       if (document.fullscreenElement) {
-        // Force re-render or resize on enter
         window.dispatchEvent(new Event('resize'));
       }
     };
@@ -496,20 +687,17 @@ export default function Home() {
       const res = await fetch('/api/get-access-token', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      // appendLog(`Token received successfully`);
       return data.token;
     } catch (error) {
-      // appendLog(`❌ Token fetch failed: ${error.message}`);
-      throw error;
+      appendLog(error);
     }
   }, [appendLog]);
 
   const generateScriptWithGemini = useCallback(async () => {
     if (generatingRef.current) {
-      // appendLog('Generation already in progress - skipping');
       return;
     }
-    setIsGenerating(true); // NEW: Set generating flag for UI
+    setIsGenerating(true);
     generatingRef.current = true;
     appendLog('Starting script generation...');
 
@@ -527,14 +715,12 @@ export default function Home() {
       generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'array', items: { type: 'string' } } }
     });
 
-    // Chunk slide data into batches of 10 (unchanged)
     const batchSize = 10;
     const batches = [];
     for (let i = 0; i < slideData.length; i += batchSize) {
       batches.push(slideData.slice(i, i + batchSize));
     }
 
-    // appendLog(`Generating script in ${batches.length} batches of up to ${batchSize} slides each`);
 
     let fullScript = [];
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -549,7 +735,6 @@ export default function Home() {
           responseText = responseText.replace(/``````/g, '').trim();
           let script = JSON.parse(responseText);
 
-          // Validate and fix length for this batch (unchanged)
           if (script.length < batch.length) {
             appendLog(`⚠️ Batch ${batchIndex + 1} script too short (${script.length}/${batch.length}) - Padding`);
             const missing = batch.length - script.length;
@@ -572,30 +757,29 @@ export default function Home() {
 
       const batchScript = await attemptGeneration();
       fullScript = [...fullScript, ...batchScript];
-      // appendLog(`✅ Completed batch ${batchIndex + 1}/${batches.length}`);
     }
 
     setNarrationScript(fullScript);
-    setSlideSummaries(fullScript.map(script => script.slice(0, 100) + '...')); // Simplified summary generation if needed
-    appendLog(`✅ Full narration script generated (${fullScript.length} items)`);
+    setSlideSummaries(fullScript.map(script => script.slice(0, 100) + '...'));
+
+    appendLog(`Script generated...`);
+
     generatingRef.current = false;
-    setIsGenerating(false); // NEW: Clear generating flag
-    setHasGenerated(true); // Mark as generated to prevent auto-retriggers
+    setIsGenerating(false);
+    setHasGenerated(true);
   }, [slideData, selectedLanguage, appendLog]);
 
-  // Monitor for length mismatch (defensive, though batching should prevent it)
+  // CHECK: Script Mismatch
   useEffect(() => {
     if (slideData.length > 0 && narrationScript.length !== slideData.length && !hasGenerated) {
-      // appendLog(`⚠️ Narration script length mismatch (${narrationScript.length}/${slideData.length}) - Regenerating`);
       generateScriptWithGemini();
     }
   }, [slideData.length, narrationScript.length, generateScriptWithGemini, appendLog, isGenerating]);
 
-  // NEW: Effect to set isReady when script matches slideData length
   useEffect(() => {
     if (narrationScript.length === slideData.length && hasGenerated && !isGenerating) {
       setIsReady(true);
-      appendLog('✅ Presentation ready to start');
+      // appendLog('✅ Presentation ready to start');
     } else {
       setIsReady(false);
     }
@@ -604,20 +788,17 @@ export default function Home() {
   const speak = useCallback((scriptText) => {
     if (!avatarRef.current || !avatarReady || !scriptText) return;
     avatarRef.current.speak({ text: scriptText, task_type: "repeat" });
-    // appendLog(`🗣️ Narrating: ${scriptText.slice(0, 50)}...`);
   }, [avatarReady, appendLog]);
 
   const goToSlide = useCallback((slideIndex) => {
     if (slideIndex < 0 || slideIndex >= slideData.length) return;
     if (avatarRef.current && avatarReady) {
       avatarRef.current.interrupt();
-      // appendLog('🛑 Interrupted ongoing narration for slide change.');
     }
     setCurrentSlide(slideIndex);
     if (isPresenting && narrationScript[slideIndex] && avatarReady && !isPaused) {
       speak(narrationScript[slideIndex]);
     }
-    // appendLog(`📊 Moved to slide ${slideIndex + 1}`);
   }, [slideData.length, isPresenting, narrationScript, avatarReady, isPaused, speak, appendLog]);
 
   const goToNextSlide = useCallback(() => {
@@ -686,23 +867,21 @@ export default function Home() {
     appendLog('🛑 Avatar stopped.');
   }, [appendLog]);
 
-  // NEW: Auto-stop stream on unmount to prevent lingering sessions
+  // EFFECT: Auto-stop stream on unmount
   useEffect(() => {
-    return () => stopStream(); // Cleanup on component unmount
+    return () => stopStream();
   }, [stopStream]);
 
   const startStream = useCallback(async () => {
     if (avatarRef.current) {
-      // appendLog("Session Already Exists");
       return;
     }
-    if (!isReady) { // NEW: Block stream start until script is ready
+    if (!isReady) { // Block stream start until script is ready
       appendLog("❌ Script not fully generated. Please wait before starting.");
       return;
     }
 
     setAvatarReady(false);
-    // appendLog('Requesting session token...');
     try {
       const token = await fetchToken();
       const { default: StreamingAvatar, AvatarQuality, StreamingEvents } = await import('@heygen/streaming-avatar');
@@ -712,9 +891,7 @@ export default function Home() {
       avatar.on(StreamingEvents.ICE_CONNECTION_STATE_CHANGE, (state) => appendLog(`ICE connection state changed: ${state}`));
       avatar.on(StreamingEvents.STREAM_READY, (event) => {
         const stream = event.detail;
-        // appendLog('Media stream received. Attaching to video element...');
         if (stream) {
-          // appendLog(`Stream details - Video tracks: ${stream.getVideoTracks().length}, Audio tracks: ${stream.getAudioTracks().length}`);
         } else {
           appendLog('❌ Stream is null or undefined!');
           return;
@@ -724,30 +901,24 @@ export default function Home() {
           videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
           return;
         }
-        // appendLog('Avatar stream attached');
         setAvatarReady(true);
       });
       avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`❌ Stream disconnected: ${e ? e.reason : 'Timeout'}`));
-      // avatar.on(StreamingEvents.STREAM_DISCONNECTED, () => {
-      //   appendLog("Avatar Disconnected, restarting");
-      //   // Optionally inform user and auto-restart
-      //   restartStream();
-      // });
+
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        // appendLog('🔇 Avatar finished speaking');
         if (isPresenting && currentSlide < slideData.length - 1) {
           setTimeout(() => goToNextSlide(), 1500);
         }
       });
 
-      // appendLog('Starting avatar session...');
       await avatar.createStartAvatar({
         avatarName: currentAvatarId,
         voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.english },
         quality: AvatarQuality.Medium,
-        activityIdleTimeout: 300, // NEW: Reduced to 300s (5 min) to minimize idle charges
+        activityIdleTimeout: 180,
       });
-      appendLog('✅ Avatar connected');
+
+      appendLog('Avatar connected');
       setAvatarReady(true);
     } catch (error) {
       appendLog(`❌ Failed to start avatar: ${error.message || 'Unknown error'}`);
@@ -757,13 +928,13 @@ export default function Home() {
   }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isReady, isPresenting, currentSlide, slideData.length, goToNextSlide]);
 
   const startPresentation = useCallback(() => {
-    if (!isReady) { // NEW: Block if not ready
+    if (!isReady) { // Block if not ready
       appendLog('❌ Script not fully generated. Please wait.');
       return;
     }
     if (!avatarReady) {
       appendLog('❌ Avatar not ready. Starting stream...');
-      startStream(); // Streamline: Auto-start stream if needed
+      startStream();
       return;
     }
     if (!narrationScript.length) {
@@ -775,7 +946,7 @@ export default function Home() {
     setCurrentSlide(0);
     goToSlide(0);
     appendLog('🎤 Presentation started');
-  }, [isReady, avatarReady, narrationScript.length, goToSlide, appendLog, startStream]); // Added startStream dependency
+  }, [isReady, avatarReady, narrationScript.length, goToSlide, appendLog, startStream]);
 
   const askQuestion = useCallback(async () => {
     if (!avatarReady || !isPresenting || !questionText.trim()) {
@@ -793,7 +964,6 @@ export default function Home() {
     console.log('Question Text:', questionText);
     console.log('Current Slide:', currentSlide);
 
-    // Store the question in the database
     const storeQuestion = async () => {
       try {
         const response = await fetch('/api/questions', {
@@ -802,7 +972,7 @@ export default function Home() {
           body: JSON.stringify({ deckId: router.query.deck, text: questionText, slideId: currentSlide }),
         });
 
-        const responseBody = await response.json(); // Always parse body for details
+        const responseBody = await response.json();
         if (!response.ok) {
           console.error('Failed to store question:', response.status, responseBody);
           appendLog(`❌ Failed to store question: ${response.status} ${responseBody.error || 'Unknown error'}`);
@@ -847,8 +1017,6 @@ export default function Home() {
     }
   }, [avatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
 
-  // ... (rest of the code remains the same as in the previous full code)
-
   useEffect(() => {
     const loadDeckData = async () => {
       const { deck: deckId } = router.query;
@@ -862,7 +1030,6 @@ export default function Home() {
         }
 
         try {
-          // appendLog(`Loading presentation: ${deckId}`);
           setLoading(true);
 
           const response = await fetch(`/api/decks/${deckId}`);
@@ -907,17 +1074,13 @@ export default function Home() {
           const avatarConfig = AVATAR_CONFIGS[deck.avatar];
           if (avatarConfig) {
             setCurrentAvatarId(avatarConfig.id);
-            // appendLog(`Using avatar: ${avatarConfig.name}`);
           }
-
-          // appendLog(`✅ Loaded presentation: "${deck.title}" (${deck.slides.length} slides)`);
 
         } catch (error) {
           appendLog(`❌ Network error: ${error.message}`);
           setError('Network error - please try again');
         }
       } else {
-        // Fallback logic if needed
         setSlideData(SAMPLE_SLIDE_DATA);
         appendLog('Using sample slide data');
       }
@@ -929,7 +1092,6 @@ export default function Home() {
     }
   }, [router.isReady, router.query, appendLog]);
 
-  // Kept: Script generation effect (runs after slideData loads, but no auto-stream)
   useEffect(() => {
     if (slideData.length > 0 && !hasGenerated) {
       generateScriptWithGemini();
@@ -995,12 +1157,12 @@ export default function Home() {
 
   const restartStream = useCallback(() => {
     stopStream();
-    setTimeout(startStream, 500); // Small delay to ensure clean restart
+    setTimeout(startStream, 500);
     appendLog('🔄 Stream restarted');
   }, [stopStream, startStream, appendLog]);
 
   const onRegenerate = () => {
-    setHasGenerated(false); // Allow regeneration
+    setHasGenerated(false);
     generateScriptWithGemini();
   };
 
@@ -1018,7 +1180,7 @@ export default function Home() {
             color: '#2c3e50',
             fontSize: '3rem',
             fontWeight: '300',
-            fontFamily: '"Helvetica Neue", Arial, sans-serif',
+            fontFamily: 'var(--font-figtree), Arial, sans-serif',
             position: 'relative'
           }}>CAIRE<span style={{ color: '#0070f3', fontWeight: 'bold' }}>gen</span>
             <div style={{
@@ -1037,7 +1199,21 @@ export default function Home() {
             </div>
             <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} />
           </div>
+
           <div style={styles.controlsContainer}>
+            <div style={styles.indicatorContainer}>
+              <div
+                style={{
+                  ...styles.indicator,
+                  ...(isGenerating ? styles.generating : isReady ? styles.ready : styles.notReady)
+                }}
+                title={isGenerating ? 'Generating Script...' : isReady ? 'Ready to Start' : 'Not Ready - Waiting for Script...'}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >
+                {isGenerating ? 'Generating' : isReady ? 'Ready' : 'Not Ready'}
+              </div>
+            </div>
             <div style={styles.fullWidthControls}>
               <Controls
                 onRestart={restartStream}
@@ -1059,10 +1235,6 @@ export default function Home() {
                 onToggleFullscreen={toggleFullscreen}
                 isFullscreen={isFullscreen}
               />
-              {/* NEW: Readiness Indicator */}
-              <div style={isGenerating ? styles.generatingIndicator : styles.readyIndicator}>
-                {isGenerating ? '⏳ Generating Script...' : (isReady ? '✅ Ready to Start' : 'Waiting for Script...')}
-              </div>
               <LogViewer logs={logs} />
             </div>
           </div>

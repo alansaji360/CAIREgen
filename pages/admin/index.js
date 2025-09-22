@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Figtree } from 'next/font/google';
+
+// Configure Figtree font
+const figtree = Figtree({
+  subsets: ['latin'],
+  variable: '--font-figtree',
+});
 
 export default function AdminPage() {
   const [decks, setDecks] = useState([]);
@@ -22,7 +29,7 @@ export default function AdminPage() {
   const fetchDecks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/decks');
+      const response = await fetch('/api/admin/decks/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
 
       const data = await response.json();
@@ -115,6 +122,34 @@ export default function AdminPage() {
     }
   };
 
+  // NEW: Delete a single question
+  const deleteQuestion = async (deckId, questionId) => {
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+
+    appendLog(`🗑️ Deleting question ${questionId}...`);
+
+    try {
+      const response = await fetch(`/api/admin/questions/${questionId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete question');
+      }
+
+      // Update local state to remove the question
+      setDeckQuestions(prev => ({
+        ...prev,
+        [deckId]: prev[deckId].filter(q => q.id !== questionId)
+      }));
+      appendLog(`✅ Successfully deleted question ${questionId}`);
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      appendLog(`❌ Error deleting question: ${error.message}`);
+    }
+  };
+
   // Gemini summarization
   const summarizeQuestions = async (deckId, questions) => {
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY; // Use your env var
@@ -183,30 +218,19 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1>🔧 Admin - Deck Management</h1>
-        <div>
-          <a href="/upload" style={{
-            padding: '8px 16px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '4px',
-            marginRight: '10px'
-          }}>
-            ➕ Create New Deck
-          </a>
-          <a href="/" style={{
-            padding: '8px 16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: '4px'
-          }}>
-            🏠 Home
-          </a>
-        </div>
+    <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+      <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>🔧 Admin - Deck Management</h1>
+      <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
+        <a href="/upload" style={{
+                padding: '8px 16px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+              }}>
+                ➕ Create New Deck
+              </a>
       </div>
 
       {/* Search and Bulk Actions */}
@@ -392,7 +416,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* NEW: Expand/Collapse for Questions - Insert here, after existing buttons */}
+              {/* Expand/Collapse for Questions */}
               <div style={{ marginTop: '1rem' }}>
                 <button
                   onClick={() => {
@@ -424,8 +448,23 @@ export default function AdminPage() {
                     ) : (
                       <ul style={{ listStyleType: 'none', padding: 0 }}>
                         {deckQuestions[deck.id].map((q) => (
-                          <li key={q.id} style={{ marginBottom: '0.5rem' }}>
-                            {q.text} ({new Date(q.createdAt).toLocaleString()})
+                          <li key={q.id} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{q.text} ({new Date(q.createdAt).toLocaleString()})</span>
+                            <button
+                              onClick={() => deleteQuestion(deck.id, q.id)}
+                              style={{
+                                padding: '2px 6px',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete this question"
+                            >
+                              🗑️
+                            </button>
                           </li>
                         ))}
                       </ul>
@@ -465,7 +504,7 @@ export default function AdminPage() {
         padding: '1rem',
         backgroundColor: '#f8f9fa',
         borderRadius: '8px',
-        fontFamily: 'monospace',
+        fontFamily: 'var(--font-figtree), Arial, sans-serif',
         fontSize: '14px'
       }}>
         <h3>Status Log:</h3>

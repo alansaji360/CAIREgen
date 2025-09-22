@@ -48,9 +48,9 @@ export default async function handler(req, res) {
       console.log('Database connection successful');
     } catch (dbError) {
       console.error('Database connection failed:', dbError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Database connection failed',
-        details: dbError.message 
+        details: dbError.message
       });
     }
 
@@ -103,23 +103,23 @@ export default async function handler(req, res) {
 
     // Handle specific Prisma errors
     if (error.code === 'P2002') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Duplicate entry detected',
-        details: error.message 
+        details: error.message
       });
     }
 
     if (error.code?.startsWith('P')) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Database operation failed',
-        details: `Prisma error: ${error.message}` 
+        details: `Prisma error: ${error.message}`
       });
     }
 
     // Generic error response
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to save question to database',
-      details: error.message 
+      details: error.message
     });
   } finally {
     // Ensure database connection is closed
