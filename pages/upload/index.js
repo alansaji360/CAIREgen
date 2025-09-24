@@ -19,6 +19,7 @@ export default function SlideManager() {
   ]);
   const [activeTab, setActiveTab] = useState('pdf');
   const [presentationUrl, setPresentationUrl] = useState('');
+  const [uploadedFileUrl, setUploadedFileUrl] = useState('');
 
   const fileInputRef = useRef(null);
 
@@ -140,6 +141,19 @@ export default function SlideManager() {
     reader.readAsDataURL(file);
   };
 
+  async function uploadToBlob(file) {
+    const qs = new URLSearchParams({ filename: file.name });
+    const res = await fetch(`/api/vercel/blob-upload?${qs.toString()}`, {
+      method: 'POST',
+      body: file, // raw stream
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Blob upload failed: ${res.status} ${text}`);
+    }
+    return res.json(); // { url, pathname, size, contentType }
+  }
+
   // Create slide deck (UPDATED FOR NEW API)
   const createSlideDeck = async () => {
     setIsLoading(true);
@@ -147,31 +161,33 @@ export default function SlideManager() {
 
     try {
       // Validate inputs
-      if (!deckTitle.trim()) {
-        throw new Error('Please enter a deck title');
+      if (!deckTitle.trim()) throw new Error('Please enter a deck title');
+      if (!selectedAvatar) throw new Error('Please select an avatar');
+
+      // 1) If user selected a PDF but you haven't uploaded it to Blob yet, upload it now.
+      //    The parsing is already done in your effect, so uploadedFile is null by now.
+      //    If you want to upload the original file to Blob at selection time instead, move this into handlePDFUpload.
+      if (!uploadedFileUrl && fileInputRef.current?.files?.[0]) {
+        const file = fileInputRef.current.files[0];
+        appendLog(`Uploading original PDF "${file.name}" to Blob...`);
+        const blobInfo = await uploadToBlob(file);
+        setUploadedFileUrl(blobInfo.url);
+        appendLog(`Blob stored: ${blobInfo.url}`);
       }
 
-      if (!selectedAvatar) {
-        throw new Error('Please select an avatar');
-      }
-
+      // 2) Build slide metadata to send — keep as small as reasonable.
       let slidesToUpload = [];
 
       if (activeTab === 'pdf' && extractedSlides.length > 0) {
         slidesToUpload = extractedSlides.map((slide, index) => ({
-          image: slide.image,
+          image: slide.image, // consider trimming images or deferring image generation server-side if size is large
           alt: `${deckTitle} - Slide ${index + 1}`,
           topic: slide.topic,
           content: slide.content
         }));
       } else if (activeTab === 'manual') {
-        const validSlides = manualSlides.filter(slide =>
-          slide.topic.trim() && slide.content.trim()
-        );
-
-        if (validSlides.length === 0) {
-          throw new Error('Please add at least one slide with topic and content');
-        }
+        const validSlides = manualSlides.filter(slide => slide.topic.trim() && slide.content.trim());
+        if (validSlides.length === 0) throw new Error('Please add at least one slide with topic and content');
 
         slidesToUpload = validSlides.map((slide, index) => ({
           image: slide.image || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
@@ -183,40 +199,41 @@ export default function SlideManager() {
         throw new Error('No slides to upload');
       }
 
-      appendLog(`Sending deck data to server...`);
+      appendLog('Sending deck data to server...');
 
+      // 3) Call your existing slides API with small JSON:
+      //    IMPORTANT: Include fileUrl (original PDF Blob URL) so you don’t need to POST the PDF body.
       const response = await fetch('/api/prisma/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           slides: slidesToUpload,
           deckTitle: deckTitle.trim(),
-          avatar: selectedAvatar
+          avatar: selectedAvatar,
+          fileUrl: uploadedFileUrl || null // include the blob URL if available
         })
       });
 
       if (!response.ok) {
         const contentType = response.headers.get("content-type");
         let errorPayload = "Could not retrieve error details.";
-
         if (contentType && contentType.includes("application/json")) {
           const errorData = await response.json();
           errorPayload = errorData.error || JSON.stringify(errorData);
         } else {
           errorPayload = await response.text();
         }
-
         throw new Error(`Server responded with status ${response.status}. Details: ${errorPayload}`);
       }
 
       const result = await response.json();
       appendLog(`${result.message}`);
 
-      // GENERATE PRESENTATION URL
+      // Generate presentation URL
       if (result.deckId) {
-        const presentationUrl = `${window.location.origin}/student/?deck=${result.deckId}`;
-        setPresentationUrl(presentationUrl);
-        appendLog(`🔗 Presentation URL: ${presentationUrl}`);
+        const url = `${window.location.origin}/student/?deck=${result.deckId}`;
+        setPresentationUrl(url);
+        appendLog(`🔗 Presentation URL: ${url}`);
       }
 
       // Reset form on success
@@ -224,9 +241,8 @@ export default function SlideManager() {
       setSelectedAvatar('');
       setExtractedSlides([]);
       setManualSlides([{ topic: '', content: '', image: '' }]);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setUploadedFileUrl('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error) {
       console.error('Slide deck creation error:', error);
@@ -633,7 +649,7 @@ export default function SlideManager() {
           >
             📋 Copy Link
           </button>
-          
+
         </div>
       )}
 
