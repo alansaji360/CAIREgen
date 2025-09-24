@@ -185,7 +185,7 @@ export default function SlideManager() {
 
       appendLog(`Sending deck data to server...`);
 
-      const response = await fetch('/api/slides', {
+      const response = await fetch('/api/prisma/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

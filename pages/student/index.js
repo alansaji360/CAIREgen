@@ -644,7 +644,7 @@ export default function Home() {
   const [currentAvatarId, setCurrentAvatarId] = useState(AVATAR_ID);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const generatingRef = useRef(false); 
+  const generatingRef = useRef(false);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
@@ -939,12 +939,21 @@ export default function Home() {
       appendLog('No narration script available. Please generate or upload a presentation.');
       return;
     }
-    setIsPresenting(true);
     setIsPaused(false);
+    setIsPresenting(true);
+    setisAvatarReady(true);
+
     setCurrentSlide(0);
-    goToSlide(0);
-    appendLog('Presentation started');
+
   }, [isReady, isAvatarReady, narrationScript.length, goToSlide, appendLog, startStream]);
+
+  useEffect(() => {
+    if (isPresenting) {
+      goToSlide(0);
+    }
+
+    appendLog('Presentation started');
+  }, [isPresenting]);
 
   const askQuestion = useCallback(async () => {
     if (!isAvatarReady || !isPresenting || !questionText.trim()) {
@@ -1148,9 +1157,9 @@ export default function Home() {
                   ...styles.indicator,
                   ...(isGenerating ? styles.generating : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
                 }}
-                title={isGenerating  ? 'Generating Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
+                title={isGenerating ? 'Generating Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
 
-                
+
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
