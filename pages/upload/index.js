@@ -1,11 +1,113 @@
 import React, { useState, useRef } from 'react';
 import { Figtree } from 'next/font/google';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Configure Figtree font
 const figtree = Figtree({
   subsets: ['latin'],
   variable: '--font-figtree',
 });
+
+
+async function fetchSlidesForDeck(deckId) {
+  // Minimal deck slides fetch; adjust path to your existing read endpoint if different
+  const res = await fetch(`/api/prisma/${deckId}`);
+  if (!res.ok) throw new Error(`Failed to fetch slides for deck ${deckId}`);
+  const data = await res.json();
+  // Expecting { slides: [...] } or deck object with slides; normalize:
+  return data.slides || data?.deck?.slides || [];
+}
+
+async function persistNarrations(items, deckId, overwrite = true) {
+  const res = await fetch('/api/prisma/narration', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      deckId,
+      overwrite,
+      items, // [{ slideId, text, language }]
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`Persist failed (${res.status}): ${t}`);
+  }
+  return res.json();
+}
+
+async function generateNarrationsClient(slides, selectedLanguage, appendLog) {
+  const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    appendLog('Gemini API key missing. Add it to .env');
+    throw new Error('Missing Gemini API key');
+  }
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash-lite',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'array', items: { type: 'string' } },
+    },
+  });
+
+  const batchSize = 10;
+  const batches = [];
+  for (let i = 0; i < slides.length; i += batchSize) {
+    batches.push(slides.slice(i, i + batchSize));
+  }
+
+  let fullScript = [];
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    const batchSummaries = batch
+      .map((slide, i) => `Slide ${batchIndex * batchSize + i + 1}: Topic - ${slide.topic}. Content - ${slide.content}`)
+      .join('\n');
+
+    const prompt =
+      `Generate an engaging narration script in ${selectedLanguage.toUpperCase()} based on the following slide contents: ${batchSummaries}. ` +
+      `For each slide, create one in-depth narrative paragraph (4-6 sentences) that expands beyond just restating the bullets by weaving them into a cohesive lesson.` +
+      `thoroughly explain the topic with historical or contextual background, incorporate relevant examples or analogies, discuss implications or real-world applications, and end with key takeaways or reflective questions. Additionally make sure to explain any math or equations that are pertinant to the discussion. ` +
+      `Ensure the tone is informative, academic yet approachable, like a professor teaching a class, and make it flow naturally for spoken narration. ` +
+      `Convert all numerical values, hexadecimal notations, addresses, or technical figures to their full spoken-word form for clear pronunciation (e.g., "0x0008" as "hex zero zero zero eight", "1024" as "one thousand twenty-four"). ` +
+      `Additionally convert coding variable names to full spoken-word form. additionaly when describing functions, use f of x for f(x) and other similar notation.` +
+      `Do not start any narrations mentioning the page/slide number. Start each slide naturally in the manner of a college professor.` +
+      `Output ONLY a JSON array of strings, with no additional text, explanations, or Markdown formatting. The array MUST have exactly ${batch.length} items, one for each slide in this batch.`;
+
+    const attemptGeneration = async (attempt = 1) => {
+      try {
+        const result = await model.generateContent(prompt);
+        let responseText = result.response.text();
+        responseText = responseText.replace(/``````/g, '').trim();
+        let script = JSON.parse(responseText);
+
+        if (script.length < batch.length) {
+          appendLog(`⚠️ Batch ${batchIndex + 1} script too short (${script.length}/${batch.length}) - Padding`);
+          const missing = batch.length - script.length;
+          script = [...script, ...Array(missing).fill('Narration generation incomplete - Regenerating...')];
+        } else if (script.length > batch.length) {
+          appendLog(`⚠️ Batch ${batchIndex + 1} script too long (${script.length}/${batch.length}) - Truncating`);
+          script = script.slice(0, batch.length);
+        }
+
+        return script;
+      } catch (error) {
+        appendLog(`Gemini error on batch ${batchIndex + 1} attempt ${attempt}: ${error.message}`);
+        if (attempt < 2) {
+          appendLog(`Retrying batch ${batchIndex + 1}...`);
+          return attemptGeneration(attempt + 1);
+        }
+        return Array(batch.length).fill('Error generating narration - Please try regenerating');
+      }
+    };
+
+    const batchScript = await attemptGeneration();
+    fullScript = [...fullScript, ...batchScript];
+  }
+
+  return fullScript;
+}
+
 
 export default function SlideManager() {
   const [status, setStatus] = useState('');
@@ -230,12 +332,34 @@ export default function SlideManager() {
       appendLog(`${result.message}`);
 
       // Generate presentation URL
+      
+
+      const language = 'en';
+
+      appendLog('Fetching created slides...');
+      const createdSlides = await fetchSlidesForDeck(result.deckId); // same helper as before
+      appendLog(`Generating narration for ${createdSlides.length} slides...`);
+
+      const narrationsArray = await generateNarrationsClient(createdSlides, language, appendLog);
+      
+      const items = createdSlides.map((s, idx) => ({
+        slideId: s.id,
+        text: narrationsArray[idx] || 'Narration unavailable.',
+        language,
+      }));
+
+
+      appendLog('Saving narrations to database...');
+      const saveRes = await persistNarrations(items, result.deckId, true); // overwrite = true to set as active
+      const okCount = (saveRes?.results || []).filter(r => r.status === 'ok').length;
+      appendLog(`Narrations saved (${okCount}/${items.length})`);
+
       if (result.deckId) {
         const url = `${window.location.origin}/student/?deck=${result.deckId}`;
         setPresentationUrl(url);
         appendLog(`🔗 Presentation URL: ${url}`);
       }
-
+      
       // Reset form on success
       setDeckTitle('');
       setSelectedAvatar('');

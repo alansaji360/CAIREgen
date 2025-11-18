@@ -8,23 +8,29 @@ export default async function handler(req, res) {
   try {
     const decks = await prisma.deck.findMany({
       include: {
-        slides: {
-          select: { id: true } // Only count slides, don't fetch full data
-        }
+        slides: true, 
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
+      },
+    });
+
+    // Sort the slides for each deck numerically after fetching.
+    decks.forEach((deck) => {
+      if (deck.slides && Array.isArray(deck.slides)) {
+        deck.slides.sort((a, b) => {
+          const getSlideNumber = (alt) => {
+            if (!alt) return 0;
+            const match = alt.match(/Slide (\d+)/i);
+            return match ? parseInt(match[1], 10) : 0;
+          };
+          return getSlideNumber(a.alt) - getSlideNumber(b.alt);
+        });
       }
     });
 
-    // Transform data to include slide count
-    const decksWithCounts = decks.map(deck => ({
-      ...deck,
-      slideCount: deck.slides.length,
-      slides: deck.slides // Keep for count
-    }));
+    res.status(200).json(decks);
 
-    res.status(200).json(decksWithCounts);
   } catch (error) {
     console.error('Error fetching decks:', error);
     res.status(500).json({ error: 'Failed to fetch decks' });

@@ -29,6 +29,7 @@ model Slide {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   Question  Question[]
+  narrations   Narration[]
 }
 
 model Question {
@@ -39,4 +40,20 @@ model Question {
   createdAt DateTime @default(now())
   deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
   slide     Slide?   @relation(fields: [slideId], references: [id], onDelete: SetNull) // Optional relation
+}
+
+model Narration {
+  id              String    @id @default(cuid())
+  slideId         Int
+  slide           Slide?     @relation(fields: [slideId], references: [id], onDelete: Cascade)
+  language        String    @default("en")
+  text            String    @db.Text
+  model           String?   // e.g., "gemini-1.5-flash"
+  voiceId         String?   // if avatar TTS differs
+  status          String?   // "ready" | "queued" | "error"
+  error           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  version         Int       @default(1)   
+  isActive        Boolean   @default(true) 
 }

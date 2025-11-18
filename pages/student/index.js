@@ -68,7 +68,7 @@ const styles = {
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
     background: 'linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%)',
     flexShrink: 0,
-    overflow: 'auto', 
+    overflow: 'auto',
     position: 'relative',
     transition: 'all 0.3s ease',
   },
@@ -492,17 +492,6 @@ const Controls = ({
         ?
       </button>
 
-
-      <button
-        style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
-        onClick={onRegenerate}
-        title="Regenerate narration script"
-        onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
-        onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
-      >
-        Regenerate Script
-      </button>
-
       <button
         style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
         onClick={onRestart}
@@ -693,88 +682,51 @@ export default function Home() {
     }
   }, [appendLog]);
 
-  const generateScriptWithGemini = useCallback(async () => {
-    if (generatingRef.current) {
-      return;
-    }
+  const loadStoredNarrations = useCallback(async () => {
+    const deckId = router.query.deck;
+    if (!deckId || !slideData?.length) return;
     setIsGenerating(true);
-    generatingRef.current = true;
-    appendLog('Starting script generation...');
+    appendLog('Loading Narrations...');
+    try {
+      const params = new URLSearchParams({
+        deckId,
+        language: selectedLanguage || '', 
+        includeSlide: 'false',
+      });
 
-    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      appendLog('Gemini API key missing. Add it to .env');
-      generatingRef.current = false;
+      const res = await fetch(`/api/prisma/narration?${params.toString()}`);
+      // appendLog(res.status);
+      
+      if (!res.ok) throw new Error(`Failed to fetch narrations (${res.status})`);
+      const { narrations } = await res.json();
+
+      const activeBySlideId = new Map();
+      for (const n of narrations) {
+        if (n.isActive) activeBySlideId.set(n.slideId, n.text);
+      }
+
+      const ordered = narrations.map(n => n.text)
+      setNarrationScript(ordered);
+      setSlideSummaries(ordered.map(t => (t || '').slice(0, 100) + '...'));
+      setHasGenerated(true);
+      appendLog('Narrations loaded.');
+
+      // appendLog(ordered);
+
+    } catch (e) {
+      appendLog(`Narration load error: ${e.message}`);
+      const fallback = slideData.map(() => 'Narration not available.');
+      setNarrationScript(fallback);
+      setSlideSummaries(fallback.map(() => ''));
+    } finally {
       setIsGenerating(false);
-      return;
     }
-
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash-lite',
-      generationConfig: { responseMimeType: 'application/json', responseSchema: { type: 'array', items: { type: 'string' } } }
-    });
-
-    const batchSize = 10;
-    const batches = [];
-    for (let i = 0; i < slideData.length; i += batchSize) {
-      batches.push(slideData.slice(i, i + batchSize));
-    }
-
-
-    let fullScript = [];
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const batch = batches[batchIndex];
-      const batchSummaries = batch.map((slide, i) => `Slide ${batchIndex * batchSize + i + 1}: Topic - ${slide.topic}. Content - ${slide.content}`).join('\n');
-      const prompt = `Generate an engaging narration script in ${selectedLanguage.toUpperCase()} based on the following slide contents: ${batchSummaries}. For each slide, create one in-depth narrative paragraph (4-6 sentences) that expands beyond just restating the bullets by weaving them into a cohesive story: thoroughly explain the topic with historical or contextual background, incorporate relevant examples or analogies, discuss implications or real-world applications, and end with key takeaways or reflective questions. Ensure the tone is informative, academic yet approachable, like a professor teaching a class, and make it flow naturally for spoken narration. Convert all numerical values, hexadecimal notations, addresses, or technical figures to their full spoken-word form for clear pronunciation (e.g., "0x0008" as "hex zero zero zero eight", "1024" as "one thousand twenty-four"). Output ONLY a JSON array of strings, with no additional text, explanations, or Markdown formatting. The array MUST have exactly ${batch.length} items, one for each slide in this batch.`;
-
-      const attemptGeneration = async (attempt = 1) => {
-        try {
-          const result = await model.generateContent(prompt);
-          let responseText = result.response.text();
-          responseText = responseText.replace(/``````/g, '').trim();
-          let script = JSON.parse(responseText);
-
-          if (script.length < batch.length) {
-            appendLog(`⚠️ Batch ${batchIndex + 1} script too short (${script.length}/${batch.length}) - Padding`);
-            const missing = batch.length - script.length;
-            script = [...script, ...Array(missing).fill('Narration generation incomplete - Regenerating...')];
-          } else if (script.length > batch.length) {
-            appendLog(`⚠️ Batch ${batchIndex + 1} script too long (${script.length}/${batch.length}) - Truncating`);
-            script = script.slice(0, batch.length);
-          }
-
-          return script;
-        } catch (error) {
-          appendLog(`Gemini error on batch ${batchIndex + 1} attempt ${attempt}: ${error.message}`);
-          if (attempt < 2) {
-            appendLog(`Retrying batch ${batchIndex + 1}...`);
-            return attemptGeneration(attempt + 1);
-          }
-          return Array(batch.length).fill('Error generating narration - Please try regenerating');
-        }
-      };
-
-      const batchScript = await attemptGeneration();
-      fullScript = [...fullScript, ...batchScript];
-    }
-
-    setNarrationScript(fullScript);
-    setSlideSummaries(fullScript.map(script => script.slice(0, 100) + '...'));
-
-    appendLog(`Script generated...`);
-
-    generatingRef.current = false;
-    setIsGenerating(false);
-    setHasGenerated(true);
   }, [slideData, selectedLanguage, appendLog]);
-
-  // CHECK: Script Mismatch
+  
   useEffect(() => {
-    if (slideData.length > 0 && narrationScript.length !== slideData.length && !hasGenerated) {
-      generateScriptWithGemini();
-    }
-  }, [slideData.length, narrationScript.length, generateScriptWithGemini, appendLog, isGenerating]);
+    if (slideData?.length) loadStoredNarrations();
+  }, [slideData, selectedLanguage, loadStoredNarrations]);
+
 
   useEffect(() => {
     if (narrationScript.length === slideData.length && hasGenerated && !isGenerating) {
@@ -1100,22 +1052,11 @@ export default function Home() {
     }
   }, [router.isReady, router.query, appendLog]);
 
-  useEffect(() => {
-    if (slideData.length > 0 && !hasGenerated) {
-      generateScriptWithGemini();
-    }
-  }, [slideData, selectedLanguage, generateScriptWithGemini]);
-
   const restartStream = useCallback(() => {
     stopStream();
     setTimeout(startStream, 500);
     appendLog('Stream restarted');
   }, [stopStream, startStream, appendLog]);
-
-  const onRegenerate = () => {
-    setHasGenerated(false);
-    generateScriptWithGemini();
-  };
 
   // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
@@ -1158,20 +1099,19 @@ export default function Home() {
                   ...styles.indicator,
                   ...(isGenerating ? styles.generating : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
                 }}
-                title={isGenerating ? 'Generating Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
+                title={isGenerating ? 'Loading Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
 
 
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {isGenerating ? 'Generating' : (isReady && isAvatarReady) ? 'Ready' : 'Press Start'}
+                {isGenerating ? 'Loading' : (isReady && isAvatarReady) ? 'Ready' : 'Press Start'}
               </div>
             </div>
             <div style={styles.fullWidthControls}>
               <Controls
                 onRestart={restartStream}
                 onClearLog={clearLogs}
-                onRegenerate={onRegenerate}
                 onTogglePause={togglePause}
                 isPaused={isPaused}
                 onStartPresentation={startPresentation}
