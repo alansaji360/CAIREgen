@@ -108,6 +108,49 @@ async function generateNarrationsClient(slides, selectedLanguage, appendLog) {
   return fullScript;
 }
 
+async function translateNarrationsClient(sourceScript, targetLanguage, appendLog) {
+  const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    appendLog('Gemini API key missing for translation.');
+    return sourceScript;
+  }
+
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash-lite',
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: { type: 'array', items: { type: 'string' } },
+    },
+  });
+
+  const batchSize = 10;
+  const batches = [];
+  for (let i = 0; i < sourceScript.length; i += batchSize) {
+    batches.push(sourceScript.slice(i, i + batchSize));
+  }
+
+  let fullTranslated = [];
+
+  for (let i = 0; i < batches.length; i++) {
+    const batch = batches[i];
+    const prompt = `Translate the following array of presentation narration strings into ${targetLanguage}. ` +
+      `Return ONLY a valid JSON array of strings. Maintain the tone and length. ` +
+      `\n\n${JSON.stringify(batch)}`;
+
+    try {
+      const result = await model.generateContent(prompt);
+      let responseText = result.response.text();
+      responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const json = JSON.parse(responseText);
+      fullTranslated = [...fullTranslated, ...json];
+    } catch (error) {
+      appendLog(`Translation error batch ${i + 1}: ${error.message}`);
+      fullTranslated = [...fullTranslated, ...batch]; // Fallback to original
+    }
+  }
+  return fullTranslated;
+}
 
 export default function SlideManager() {
   const [status, setStatus] = useState('');
@@ -342,14 +385,29 @@ export default function SlideManager() {
 
       const narrationsArray = await generateNarrationsClient(createdSlides, language, appendLog);
       
-      const items = createdSlides.map((s, idx) => ({
+      let items = createdSlides.map((s, idx) => ({
         slideId: s.id,
         text: narrationsArray[idx] || 'Narration unavailable.',
         language,
       }));
 
+      // Translate to other languages
+      const targetLanguages = ['es', 'fr', 'zh', 'ar'];
+      for (const targetLang of targetLanguages) {
+        appendLog(`Translating narrations to ${targetLang}...`);
+        const translatedArray = await translateNarrationsClient(narrationsArray, targetLang, appendLog);
+        
+        const translatedItems = createdSlides.map((s, idx) => ({
+          slideId: s.id,
+          text: translatedArray[idx] || 'Translation unavailable',
+          language: targetLang
+        }));
+        
+        items = [...items, ...translatedItems];
+      }
 
       appendLog('Saving narrations to database...');
+      appendLog(`Saving ${items.length} narrations to database...`);
       const saveRes = await persistNarrations(items, result.deckId, true); // overwrite = true to set as active
       const okCount = (saveRes?.results || []).filter(r => r.status === 'ok').length;
       appendLog(`Narrations saved (${okCount}/${items.length})`);

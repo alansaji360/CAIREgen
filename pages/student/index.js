@@ -4,14 +4,16 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { Slide } from 'react-slideshow-image';
 import 'react-slideshow-image/dist/styles.css';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import Draggable from 'react-draggable';
 
 // Constants
 const AVATAR_ID = 'Pedro_CasualLook_public';
 const VOICE_IDS = {
-  english: '8661cd40d6c44c709e2d0031c0186ada',
-  spanish: '7dde95cac3cf4d888f8e27db7b44ee75',
+  en: '8661cd40d6c44c709e2d0031c0186ada', // English Voice ID
+  es: '5bcbd1ab129c442683e5fa9ba17a7e0d', // Spanish Voice ID
+  fr: '57d7ad91fcdb41b49f3475b0bfd95034', // French Voice ID
+  zh: '735c507fdc844be3b1528dd33f7dfb2a', // Chinese Voice ID
+  ar: '46daee8d4d0042b184a6ce903014ac18', // Arabic Voice ID
 };
 
 const AVATAR_CONFIGS = {
@@ -19,6 +21,209 @@ const AVATAR_CONFIGS = {
   'avatar2': { id: 'Anna_public_20240108', name: 'Friendly' },
   'avatar3': { id: 'josh_lite3_20230714', name: 'Creative' },
   'avatar4': { id: 'Pedro_CasualLook_public', name: 'Tech' }
+};
+
+const TRANSLATIONS = {
+  en: {
+    startAvatar: 'Start Avatar',
+    resetAvatar: 'Reset Avatar',
+    connectAvatar: 'Connect Avatar',
+    disconnectAvatar: 'Disconnect Avatar',
+    prevSlide: 'Go to the previous slide',
+    nextSlide: 'Go to the next slide',
+    startPresentation: 'Start Presentation',
+    resumeNarration: 'Resume narration',
+    pauseNarration: 'Pause narration',
+    fullscreenEnter: 'Enter fullscreen mode for slides',
+    fullscreenExit: 'Exit fullscreen mode',
+    askPlaceholder: 'Ask a question...',
+    askTitle: 'Type a question to ask during the presentation',
+    submitQuestion: 'Submit your question to the avatar',
+    clearLog: 'Clear the log messages',
+    volumeTitle: 'Set speaker volume',
+    instructions: 'Instructions:',
+    instrStep1: 'Click',
+    instrStep1Action: 'Start Avatar',
+    instrStep1End: 'to connect.',
+    instrStep2: 'Wait for "Ready".',
+    instrStep3: 'Click',
+    instrStep3End: 'to begin the presentation.',
+    loading: 'Loading',
+    ready: 'Ready',
+    pressStart: 'Press Start',
+    loadingScript: 'Loading Script...',
+    readyStart: 'Ready to Start',
+    notReady: 'Not Ready - Start Avatar...',
+    narrationLabel: 'Narration:',
+    generatingNarration: 'Generating narration...',
+    slideMenu: 'Slide Menu',
+    generatingSummary: 'Generating summary...',
+    slide: 'Slide',
+    restarting: 'Restarting avatar to apply new voice...',
+    languageChange: 'Language Changed',
+    avatarUpdated: 'Avatar Updated',
+    pressPlayContinue: 'Press ▶ to continue presentation.',
+  },
+  es: {
+    startAvatar: 'Iniciar Avatar',
+    resetAvatar: 'Reiniciar Avatar',
+    connectAvatar: 'Conectar Avatar',
+    disconnectAvatar: 'Desconectar Avatar',
+    prevSlide: 'Diapositiva anterior',
+    nextSlide: 'Siguiente diapositiva',
+    startPresentation: 'Iniciar Presentación',
+    resumeNarration: 'Reanudar narración',
+    pauseNarration: 'Pausar narración',
+    fullscreenEnter: 'Pantalla completa',
+    fullscreenExit: 'Salir de pantalla completa',
+    askPlaceholder: 'Haz una pregunta...',
+    askTitle: 'Escribe una pregunta para el avatar',
+    submitQuestion: 'Enviar pregunta',
+    clearLog: 'Borrar registro',
+    volumeTitle: 'Ajustar volumen',
+    instructions: 'Instrucciones:',
+    instrStep1: 'Haz clic en',
+    instrStep1Action: 'Iniciar Avatar',
+    instrStep1End: 'para conectar.',
+    instrStep2: 'Espera a "Listo".',
+    instrStep3: 'Haz clic en',
+    instrStep3End: 'para comenzar.',
+    loading: 'Cargando',
+    ready: 'Listo',
+    pressStart: 'Presiona Inicio',
+    loadingScript: 'Cargando guion...',
+    readyStart: 'Listo para empezar',
+    notReady: 'No listo - Inicia el Avatar...',
+    narrationLabel: 'Narración:',
+    generatingNarration: 'Generando narración...',
+    slideMenu: 'Menú de Diapositivas',
+    generatingSummary: 'Generando resumen...',
+    slide: 'Diapositiva',
+    restarting: 'Reiniciando avatar para aplicar nueva voz...',
+    languageChange: 'Idioma cambiado',
+    avatarUpdated: 'Avatar Actualizado',
+    pressPlayContinue: 'Presiona ▶ para continuar.',
+  },
+  fr: {
+    startAvatar: 'Démarrer Avatar',
+    resetAvatar: 'Réinitialiser',
+    connectAvatar: 'Connecter Avatar',
+    disconnectAvatar: 'Déconnecter',
+    prevSlide: 'Précédent',
+    nextSlide: 'Suivant',
+    startPresentation: 'Démarrer',
+    resumeNarration: 'Reprendre',
+    pauseNarration: 'Pause',
+    fullscreenEnter: 'Plein écran',
+    fullscreenExit: 'Quitter',
+    askPlaceholder: 'Posez une question...',
+    askTitle: 'Tapez votre question',
+    submitQuestion: 'Envoyer',
+    clearLog: 'Effacer',
+    volumeTitle: 'Volume',
+    instructions: 'Instructions :',
+    instrStep1: 'Cliquez',
+    instrStep1Action: 'Démarrer Avatar',
+    instrStep1End: 'pour connecter.',
+    instrStep2: 'Attendez "Prêt".',
+    instrStep3: 'Cliquez',
+    instrStep3End: 'pour débuter.',
+    loading: 'Chargement',
+    ready: 'Prêt',
+    pressStart: 'Démarrer',
+    loadingScript: 'Chargement...',
+    readyStart: 'Prêt à démarrer',
+    notReady: 'Pas prêt',
+    narrationLabel: 'Narration :',
+    generatingNarration: 'Génération...',
+    slideMenu: 'Menu',
+    generatingSummary: 'Génération...',
+    slide: 'Diapositive',
+    restarting: 'Redémarrage de l\'avatar pour appliquer la nouvelle voix...',
+    languageChange: 'Langue changée',
+    avatarUpdated: 'Avatar Mis à jour',
+    pressPlayContinue: 'Appuyez sur ▶ pour continuer.',
+  },
+  zh: {
+    startAvatar: '启动数字人',
+    resetAvatar: '重置',
+    connectAvatar: '连接',
+    disconnectAvatar: '断开',
+    prevSlide: '上一页',
+    nextSlide: '下一页',
+    startPresentation: '开始演示',
+    resumeNarration: '继续',
+    pauseNarration: '暂停',
+    fullscreenEnter: '全屏',
+    fullscreenExit: '退出全屏',
+    askPlaceholder: '提问...',
+    askTitle: '输入问题',
+    submitQuestion: '提交',
+    clearLog: '清除日志',
+    volumeTitle: '音量',
+    instructions: '说明：',
+    instrStep1: '点击',
+    instrStep1Action: '启动数字人',
+    instrStep1End: '连接。',
+    instrStep2: '等待“就绪”。',
+    instrStep3: '点击',
+    instrStep3End: '开始。',
+    loading: '加载中',
+    ready: '就绪',
+    pressStart: '开始',
+    loadingScript: '加载脚本...',
+    readyStart: '准备就绪',
+    notReady: '未就绪',
+    narrationLabel: '解说：',
+    generatingNarration: '生成中...',
+    slideMenu: '菜单',
+    generatingSummary: '生成摘要...',
+    slide: '幻灯片',
+    restarting: '正在重启数字人以应用新声音...',
+    languageChange: '语言已更改',
+    avatarUpdated: '数字人已更新',
+    pressPlayContinue: '按 ▶ 继续演示。',
+  },
+  ar: {
+    startAvatar: 'بدء الأفاتار',
+    resetAvatar: 'إعادة تعيين',
+    connectAvatar: 'توصيل الأفاتار',
+    disconnectAvatar: 'قطع الاتصال',
+    prevSlide: 'الشريحة السابقة',
+    nextSlide: 'الشريحة التالية',
+    startPresentation: 'بدء العرض',
+    resumeNarration: 'استئناف',
+    pauseNarration: 'إيقاف مؤقت',
+    fullscreenEnter: 'ملء الشاشة',
+    fullscreenExit: 'خروج',
+    askPlaceholder: 'اطرح سؤالاً...',
+    askTitle: 'اكتب سؤالاً',
+    submitQuestion: 'إرسال',
+    clearLog: 'مسح السجل',
+    volumeTitle: 'مستوى الصوت',
+    instructions: 'التعليمات:',
+    instrStep1: 'انقر',
+    instrStep1Action: 'بدء الأفاتار',
+    instrStep1End: 'للاتصال.',
+    instrStep2: 'انتظر "جاهز".',
+    instrStep3: 'انقر',
+    instrStep3End: 'للبدء.',
+    loading: 'جار التحميل',
+    ready: 'جاهز',
+    pressStart: 'ابدأ',
+    loadingScript: 'جار التحميل...',
+    readyStart: 'جاهز للبدء',
+    notReady: 'غير جاهز',
+    narrationLabel: 'السرد:',
+    generatingNarration: 'جار الإنشاء...',
+    slideMenu: 'القائمة',
+    generatingSummary: 'جار التلخيص...',
+    slide: 'شريحة',
+    restarting: 'جاري إعادة تشغيل الأفاتار لتطبيق الصوت الجديد...',
+    languageChange: 'تم تغيير اللغة',
+    avatarUpdated: 'تم تحديث الأفاتار',
+    pressPlayContinue: 'اضغط على ▶ لمتابعة العرض.',
+  }
 };
 
 const SAMPLE_SLIDE_DATA = [
@@ -295,6 +500,19 @@ const styles = {
   notReady: {
     backgroundColor: '#6d7d6cff',
   },
+  shortcutsBanner: {
+    marginTop: '1rem',
+    padding: '0.5rem',
+    backgroundColor: '#e9ecef',
+    borderRadius: '5px',
+    fontSize: '0.85rem',
+    color: '#666',
+    textAlign: 'center',
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #ddd',
+    fontFamily: 'monospace',
+  },
 };
 
 
@@ -410,7 +628,7 @@ const Controls = ({
   currentSlide,
   totalSlides,
   selectedLanguage,
-  setSelectedLanguage,
+  onLanguageChange,
   onAskQuestion,
   questionText,
   setQuestionText,
@@ -424,6 +642,8 @@ const Controls = ({
 }) => {
 
   const [showVolume, setShowVolume] = useState(false);
+
+  const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
 
   const darkenColor = (hexColor, factor = 0.8) => {
     if (!hexColor || typeof hexColor !== 'string') {
@@ -501,18 +721,18 @@ const Controls = ({
       <button
         style={{ ...styles.button, backgroundColor: isAvatarReady ? '#dc3545' : '#28a745' }}
         onClick={onStartPresentation}
-        title={isAvatarReady ? 'Disconnect Avatar' : 'Connect Avatar'}
+        title={isAvatarReady ? t.disconnectAvatar : t.connectAvatar}
         onMouseEnter={(e) => handleMouseEnter(e, isAvatarReady ? '#dc3545' : '#28a745')}
         onMouseLeave={(e) => handleMouseLeave(e, isAvatarReady ? '#dc3545' : '#28a745')}
       >
-        {isAvatarReady ? 'Reset Avatar' : 'Start Avatar'}
+        {isAvatarReady ? t.resetAvatar : t.startAvatar}
       </button>
 
       <button
         style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
         onClick={onPrevSlide}
         disabled={!isPresenting || currentSlide === 0 || !isAvatarReady}
-        title="Go to the previous slide"
+        title={t.prevSlide}
         onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
       >
@@ -523,7 +743,7 @@ const Controls = ({
         style={{ ...styles.button, backgroundColor: (!isPresenting || isPaused) ? '#28a745' : '#ffc107' }}
         onClick={onTogglePause}
         disabled={!isAvatarReady}
-        title={!isPresenting ? 'Start Presentation' : (isPaused ? 'Resume narration' : 'Pause narration')}
+        title={!isPresenting ? t.startPresentation : (isPaused ? t.resumeNarration : t.pauseNarration)}
         onMouseEnter={(e) => handleMouseEnter(e, (!isPresenting || isPaused) ? '#28a745' : '#ffc107')}
         onMouseLeave={(e) => handleMouseLeave(e, (!isPresenting || isPaused) ? '#28a745' : '#ffc107')}
       >
@@ -534,7 +754,7 @@ const Controls = ({
         style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
         onClick={onNextSlide}
         disabled={!isPresenting || currentSlide === totalSlides - 1 || !isAvatarReady}
-        title="Go to the next slide"
+        title={t.nextSlide}
         onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
       >
@@ -544,7 +764,7 @@ const Controls = ({
       <button
         style={{ ...styles.button, backgroundColor: '#9caac0ff' }}
         onClick={onToggleFullscreen}
-        title={isFullscreen ? 'Exit fullscreen mode' : 'Enter fullscreen mode for slides'}
+        title={isFullscreen ? t.fullscreenExit : t.fullscreenEnter}
         onMouseEnter={(e) => handleMouseEnter(e, '#9caac0ff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#9caac0ff')}
       >
@@ -553,27 +773,30 @@ const Controls = ({
 
       <select
         value={selectedLanguage}
-        onChange={(e) => setSelectedLanguage(e.target.value)}
+        onChange={onLanguageChange}
         style={{ ...styles.input, width: 'auto', marginRight: '10px' }}
         title="Select narration language"
       >
         <option value="en">English</option>
         <option value="es">Spanish</option>
+        <option value="fr">French</option>
+        <option value="zh">Chinese</option>
+        <option value="ar">Arabic</option>
       </select>
       <input
         type="text"
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
-        placeholder="Ask a question..."
+        placeholder={t.askPlaceholder}
         style={{ ...styles.input, width: '250px' }}
         disabled={!isPresenting}
-        title="Type a question to ask during the presentation"
+        title={t.askTitle}
       />
       <button
         style={{ ...styles.button, backgroundColor: '#e01f1fff' }}
         onClick={onAskQuestion}
         disabled={!isPresenting || !questionText.trim()}
-        title="Submit your question to the avatar"
+        title={t.submitQuestion}
         onMouseEnter={(e) => handleMouseEnter(e, '#e01f1fff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#e01f1fff')}
       >
@@ -583,7 +806,7 @@ const Controls = ({
       <button
         style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
         onClick={onClearLog}
-        title="Clear the log messages"
+        title={t.clearLog}
         onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
       >
@@ -592,7 +815,7 @@ const Controls = ({
 
       <div 
         style={{...styles.slider, backgroundColor: '#818181ff', width: showVolume ? '145px' : '45px'}}
-        title="Set speaker volume"
+        title={t.volumeTitle}
         onMouseEnter={() => setShowVolume(true)}
         onMouseLeave={() => setShowVolume(false)}
       >
@@ -640,7 +863,10 @@ const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
   );
 };
 
-const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded, isFullscreen }) => (
+const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded, isFullscreen, selectedLanguage }) => {
+  const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
+  
+  return (
   <div ref={slideshowRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
     <div style={{ width: '100%', height: '100%', position: 'relative' }}> {/* New wrapper for full sizing */}
       <Slide
@@ -679,27 +905,30 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshow
               </div>
             )}
             <div style={styles.slideNarration}>
-              <strong>Narration:</strong> {narrationScript[index] || 'Generating narration...'}
+              <strong>{t.narrationLabel}</strong> {narrationScript[index] || t.generatingNarration}
             </div>
           </div>
         ))}
       </Slide>
       <AvatarOverlay videoRef={videoRef} isExpanded={isAvatarExpanded} onToggleExpand={onToggleAvatarExpanded} />
     </div>
-  </div>
-);
+  </div>);
+};
 
-const SlideMenu = ({ slideData, slideSummaries, currentSlide, goToSlide }) => (
+const SlideMenu = ({ slideData, slideSummaries, currentSlide, goToSlide, selectedLanguage }) => {
+  const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
+  
+  return (
   <div style={{ width: '300px', height: '840px', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #ccc', backgroundColor: '#f0f0f0', overflowY: 'auto', padding: '1rem', flexShrink: 0, marginLeft: '20px' }}>
-    <h3 style={{ textAlign: 'center', marginBottom: '1rem' }}>Slide Menu</h3>
+    <h3 style={{ textAlign: 'center', marginBottom: '1rem' }}>{t.slideMenu}</h3>
     {slideData.map((slide, index) => (
       <div key={`menu-${index}`} onClick={() => goToSlide(index)} style={{ padding: '1rem', marginBottom: '0.5rem', backgroundColor: currentSlide === index ? '#0070f3' : '#fff', color: currentSlide === index ? '#fff' : '#333', borderRadius: '5px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', transition: 'background 0.3s' }}>
-        <strong>Slide {index + 1}: {slide.topic}</strong>
-        <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>{slideSummaries[index] || 'Generating summary...'}</p>
+        <strong>{t.slide} {index + 1}: {slide.topic}</strong>
+        <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>{slideSummaries[index] || t.generatingSummary}</p>
       </div>
     ))}
-  </div>
-);
+  </div>);
+};
 
 const DeckInfo = ({ deckData }) => (
   <div style={styles.deckInfo}>
@@ -744,6 +973,10 @@ export default function Home() {
   const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const [volume, setVolume] = useState(1);
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [showRestartBanner, setShowRestartBanner] = useState(false);
+
+  const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
 
   const appendLog = useCallback((msg) => {
     setLogs((l) => {
@@ -792,7 +1025,7 @@ export default function Home() {
     const deckId = router.query.deck;
     if (!deckId || !slideData?.length) return;
     setIsGenerating(true);
-    appendLog('Loading Narrations...');
+    // appendLog('Loading Narrations...');
     try {
       const params = new URLSearchParams({
         deckId,
@@ -815,7 +1048,7 @@ export default function Home() {
       setNarrationScript(ordered);
       setSlideSummaries(ordered.map(t => (t || '').slice(0, 100) + '...'));
       setHasGenerated(true);
-      appendLog('Narrations loaded.');
+      // appendLog('Narrations loaded.');
 
       // appendLog(ordered);
 
@@ -941,7 +1174,7 @@ export default function Home() {
     return () => stopStream();
   }, [stopStream]);
 
-  const startStream = useCallback(async () => {
+  const startStream = useCallback(async (retries = 1) => {
     if (avatarRef.current) {
       return;
     }
@@ -973,7 +1206,7 @@ export default function Home() {
         setisAvatarReady(true);
       });
       avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => {
-        appendLog(`Stream disconnected: ${e ? e.reason : 'Timeout'}`);
+        appendLog(`Stream disconnected: ${e?.reason || 'Connection lost'}`);
         setisAvatarReady(false);
         setIsPresenting(false);
       });
@@ -986,7 +1219,8 @@ export default function Home() {
 
       await avatar.createStartAvatar({
         avatarName: currentAvatarId,
-        voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.english },
+        voice: { voiceId: VOICE_IDS[selectedLanguage] || VOICE_IDS.en },
+        language: VOICE_IDS[selectedLanguage] ? selectedLanguage : 'en',
         quality: AvatarQuality.Medium,
         activityIdleTimeout: 180,
       });
@@ -994,9 +1228,17 @@ export default function Home() {
       appendLog('Avatar connected');
       setisAvatarReady(true);
     } catch (error) {
-      appendLog(`Failed to start avatar: ${error.message || 'Unknown error'}`);
       console.error('Avatar creation error:', error);
-      setisAvatarReady(false);
+      avatarRef.current = null;
+
+      if (retries > 0) {
+        appendLog(`Connection failed: ${error.message}. Retrying...`);
+        setTimeout(() => startStream(retries - 1), 2000);
+      } else {
+        appendLog(`Failed to start avatar: ${error.message || 'Unknown error'}`);
+        setisAvatarReady(false);
+        setError('Avatar connection failed. Please refresh the page.');
+      }
     }
   }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isReady, isPresenting, currentSlide, slideData.length, goToNextSlide]);
 
@@ -1012,12 +1254,35 @@ export default function Home() {
     }
   }, [isReady, isAvatarReady, startStream, stopStream, appendLog]);
 
+  const handleLanguageChange = useCallback((e) => {
+    const newLang = e.target.value;
+    if (newLang === selectedLanguage) return;
+    
+    setSelectedLanguage(newLang);
+    
+    if (isAvatarReady) {
+      appendLog(`Language changed to ${newLang}. Restarting avatar...`);
+      setIsRestarting(true);
+      setShowRestartBanner(true);
+      stopStream();
+    }
+  }, [selectedLanguage, isAvatarReady, stopStream, appendLog]);
+
+  useEffect(() => {
+    if (isRestarting && isReady && !isAvatarReady) {
+      setIsRestarting(false);
+      startStream().then(() => {
+      });
+    }
+  }, [isRestarting, isReady, isAvatarReady, startStream]);
+
   useEffect(() => {
     if (isPresenting) {
       goToSlide(0);
+      setShowRestartBanner(false);
     }
 
-    appendLog('Presentation started');
+    // appendLog('Presentation started');
   }, [isPresenting]);
 
   const askQuestion = useCallback(async () => {
@@ -1060,11 +1325,6 @@ export default function Home() {
     };
     await storeQuestion();
 
-    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      appendLog('Gemini API key missing. Add it to .env');
-      speak('Sorry, I cannot answer questions at this time due to a missing API key.');
-    }
     try {
       const response = await fetch('/api/gemini/answer', {
         method: 'POST',
@@ -1094,7 +1354,7 @@ export default function Home() {
   }, [isAvatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
 
     // appendLog('Invalid deck ID format');
-  useEffect(() => {
+   useEffect(() => {
     const loadDeckData = async () => {
       const { deck: deckId } = router.query;
 
@@ -1112,6 +1372,7 @@ export default function Home() {
           const response = await fetch(`/api/prisma/${deckId}`);
 
           if (!response.ok) {
+            // Fixed syntax errors here
             if (response.status === 404) {
               setError('Presentation not found');
               appendLog(`Presentation not found: ${deckId}`);
@@ -1194,12 +1455,16 @@ export default function Home() {
           e.preventDefault();
           setVolume((prev) => Math.max(prev - 0.05, 0));
           break;
+        case ' ':
+          e.preventDefault();
+          handlePlayPause();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToNextSlide, goToPrevSlide]);
+  }, [goToNextSlide, goToPrevSlide, handlePlayPause]);
 
   // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
@@ -1230,9 +1495,9 @@ export default function Home() {
 
           <div style={styles.container}>
             <div ref={fullscreenRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
-              <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} isFullscreen={isFullscreen} />
+              <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} isFullscreen={isFullscreen} selectedLanguage={selectedLanguage} />
             </div>
-            <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} />
+            <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} selectedLanguage={selectedLanguage} />
           </div>
 
           <div style={styles.controlsContainer}>
@@ -1242,19 +1507,24 @@ export default function Home() {
                   ...styles.indicator,
                   ...(isGenerating ? styles.generating : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
                 }}
-                title={isGenerating ? 'Loading Script...' : (isReady && isAvatarReady) ? 'Ready to Start' : 'Not Ready - Start Avatar...'}
+                title={isGenerating ? t.loadingScript : (isReady && isAvatarReady) ? t.readyStart : t.notReady}
 
 
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {isGenerating ? 'Loading' : (isReady && isAvatarReady) ? 'Ready' : 'Press Start'}
+                {isGenerating ? t.loading : (isReady && isAvatarReady) ? t.ready : t.pressStart}
               </div>
             </div>
             <div style={styles.fullWidthControls}>
-              {!isPresenting && (
+              {!isPresenting && !showRestartBanner && (
                 <div style={styles.banner}>
-                  <strong>Instructions:</strong> 1. Click <strong>Start Avatar</strong> to connect. 2. Wait for "Ready". 3. Click <strong>▶</strong> to begin the presentation.
+                  <strong>{t.instructions}</strong> 1. {t.instrStep1} <strong>{t.instrStep1Action}</strong> {t.instrStep1End} 2. {t.instrStep2} 3. {t.instrStep3} <strong>▶</strong> {t.instrStep3End}
+                </div>
+              )}
+              {showRestartBanner && (
+                <div style={{...styles.banner, backgroundColor: isAvatarReady ? '#d4edda' : '#fff3cd', color: isAvatarReady ? '#155724' : '#856404', borderColor: isAvatarReady ? '#c3e6cb' : '#ffeeba'}}>
+                  <strong>{isAvatarReady ? t.avatarUpdated : t.languageChange}</strong>: {isAvatarReady ? t.pressPlayContinue : t.restarting}
                 </div>
               )}
               <Controls
@@ -1269,7 +1539,7 @@ export default function Home() {
                 currentSlide={currentSlide}
                 totalSlides={slideData.length}
                 selectedLanguage={selectedLanguage}
-                setSelectedLanguage={setSelectedLanguage}
+                onLanguageChange={handleLanguageChange}
                 onAskQuestion={askQuestion}
                 questionText={questionText}
                 setQuestionText={setQuestionText}
@@ -1279,6 +1549,9 @@ export default function Home() {
                 setVolume={setVolume}
               />
               <LogViewer logs={logs} />
+              <div style={styles.shortcutsBanner}>
+                <strong>Shortcuts:</strong> Space (Play/Pause) | ←/→ (Nav) | ↑/↓ (Vol)
+              </div>
             </div>
           </div>
         </>
