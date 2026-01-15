@@ -281,6 +281,17 @@ const styles = {
   generating: {
     backgroundColor: '#ffc107',
   },
+  banner: {
+    width: '100%',
+    backgroundColor: '#e3f2fd',
+    color: '#0d47a1',
+    padding: '12px',
+    textAlign: 'center',
+    marginBottom: '1rem',
+    borderRadius: '8px',
+    border: '1px solid #90caf9',
+    fontSize: '1rem',
+  },
   notReady: {
     backgroundColor: '#6d7d6cff',
   },
@@ -388,7 +399,6 @@ const darkenColor = (hexColor, factor = 0.8) => {
 };
 
 const Controls = ({
-  onRestart,
   onClearLog,
   onRegenerate,
   onTogglePause,
@@ -407,6 +417,7 @@ const Controls = ({
   onToggleFullscreen,
   isFullscreen,
   onSkipIntro,
+  isAvatarReady,
   introPlaying,
   volume,
   setVolume
@@ -488,19 +499,19 @@ const Controls = ({
     <div style={styles.controls}>
 
       <button
-        style={{ ...styles.button, backgroundColor: isPresenting ? '#dc3545' : '#28a745' }}
+        style={{ ...styles.button, backgroundColor: isAvatarReady ? '#dc3545' : '#28a745' }}
         onClick={onStartPresentation}
-        title={isPresenting ? 'Reset the presentation' : 'Start the presentation'}
-        onMouseEnter={(e) => handleMouseEnter(e, isPresenting ? '#dc3545' : '#28a745')}
-        onMouseLeave={(e) => handleMouseLeave(e, isPresenting ? '#dc3545' : '#28a745')}
+        title={isAvatarReady ? 'Disconnect Avatar' : 'Connect Avatar'}
+        onMouseEnter={(e) => handleMouseEnter(e, isAvatarReady ? '#dc3545' : '#28a745')}
+        onMouseLeave={(e) => handleMouseLeave(e, isAvatarReady ? '#dc3545' : '#28a745')}
       >
-        {isPresenting ? 'Reset' : 'Start'}
+        {isAvatarReady ? 'Reset Avatar' : 'Start Avatar'}
       </button>
 
       <button
         style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
         onClick={onPrevSlide}
-        disabled={!isPresenting || currentSlide === 0}
+        disabled={!isPresenting || currentSlide === 0 || !isAvatarReady}
         title="Go to the previous slide"
         onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
@@ -509,20 +520,20 @@ const Controls = ({
       </button>
 
       <button
-        style={{ ...styles.button, backgroundColor: isPaused ? '#28a745' : '#ffc107' }}
+        style={{ ...styles.button, backgroundColor: (!isPresenting || isPaused) ? '#28a745' : '#ffc107' }}
         onClick={onTogglePause}
-        disabled={!isPresenting}
-        title={isPaused ? 'Resume narration' : 'Pause narration'}
-        onMouseEnter={(e) => handleMouseEnter(e, isPaused ? '#28a745' : '#ffc107')}
-        onMouseLeave={(e) => handleMouseLeave(e, isPaused ? '#28a745' : '#ffc107')}
+        disabled={!isAvatarReady}
+        title={!isPresenting ? 'Start Presentation' : (isPaused ? 'Resume narration' : 'Pause narration')}
+        onMouseEnter={(e) => handleMouseEnter(e, (!isPresenting || isPaused) ? '#28a745' : '#ffc107')}
+        onMouseLeave={(e) => handleMouseLeave(e, (!isPresenting || isPaused) ? '#28a745' : '#ffc107')}
       >
-        {isPaused ? '▶' : '⏸︎'}
+        {!isPresenting || isPaused ? '▶' : '⏸︎'}
       </button>
 
       <button
         style={{ ...styles.button, backgroundColor: '#cfd5dfff' }}
         onClick={onNextSlide}
-        disabled={!isPresenting || currentSlide === totalSlides - 1}
+        disabled={!isPresenting || currentSlide === totalSlides - 1 || !isAvatarReady}
         title="Go to the next slide"
         onMouseEnter={(e) => handleMouseEnter(e, '#cfd5dfff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#cfd5dfff')}
@@ -567,16 +578,6 @@ const Controls = ({
         onMouseLeave={(e) => handleMouseLeave(e, '#e01f1fff')}
       >
         ?
-      </button>
-
-      <button
-        style={{ ...styles.button, backgroundColor: '#5f5f5fff' }}
-        onClick={onRestart}
-        title="Restart narration"
-        onMouseEnter={(e) => handleMouseEnter(e, '#5f5f5fff')}
-        onMouseLeave={(e) => handleMouseLeave(e, '#5f5f5fff')}
-      >
-        Restart Avatar
       </button>
 
       <button
@@ -900,13 +901,25 @@ export default function Home() {
     }
   }, [isAvatarReady, currentSlide, narrationScript, speak, appendLog]);
 
-  const togglePause = useCallback(() => {
-    if (isPaused) {
-      resumeNarration();
+  const handlePlayPause = useCallback(() => {
+    if (!isPresenting) {
+      // Start the presentation
+      if (!isAvatarReady) {
+        appendLog('Please start the avatar first.');
+        return;
+      }
+      setIsPresenting(true);
+      setIsPaused(false);
+      // The useEffect for isPresenting will handle goToSlide(0)
     } else {
-      pauseNarration();
+      // Toggle pause
+      if (isPaused) {
+        resumeNarration();
+      } else {
+        pauseNarration();
+      }
     }
-  }, [isPaused, pauseNarration, resumeNarration]);
+  }, [isPresenting, isAvatarReady, isPaused, resumeNarration, pauseNarration, appendLog]);
 
   const clearLogs = useCallback(() => setLogs([]), []);
 
@@ -983,27 +996,17 @@ export default function Home() {
     }
   }, [fetchToken, currentAvatarId, selectedLanguage, appendLog, isReady, isPresenting, currentSlide, slideData.length, goToNextSlide]);
 
-  const startPresentation = useCallback(() => {
+  const handleAvatarToggle = useCallback(() => {
     if (!isReady) { // Block if not ready
       appendLog('Script not fully generated. Please wait.');
       return;
     }
-    if (!isAvatarReady) {
-      appendLog('Avatar not ready. Starting stream...');
+    if (isAvatarReady) {
+      stopStream();
+    } else {
       startStream();
-      return;
     }
-    if (!narrationScript.length) {
-      appendLog('No narration script available. Please generate or upload a presentation.');
-      return;
-    }
-    setIsPaused(false);
-    setIsPresenting(true);
-    setisAvatarReady(true);
-
-    setCurrentSlide(0);
-
-  }, [isReady, isAvatarReady, narrationScript.length, goToSlide, appendLog, startStream]);
+  }, [isReady, isAvatarReady, startStream, stopStream, appendLog]);
 
   useEffect(() => {
     if (isPresenting) {
@@ -1160,12 +1163,6 @@ export default function Home() {
     }
   }, [router.isReady, router.query, appendLog]);
 
-  const restartStream = useCallback(() => {
-    stopStream();
-    setTimeout(startStream, 500);
-    appendLog('Stream restarted');
-  }, [stopStream, startStream, appendLog]);
-
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = volume;
@@ -1251,12 +1248,17 @@ export default function Home() {
               </div>
             </div>
             <div style={styles.fullWidthControls}>
+              {!isPresenting && (
+                <div style={styles.banner}>
+                  <strong>Instructions:</strong> 1. Click <strong>Start Avatar</strong> to connect. 2. Wait for "Ready". 3. Click <strong>▶</strong> to begin the presentation.
+                </div>
+              )}
               <Controls
-                onRestart={restartStream}
                 onClearLog={clearLogs}
-                onTogglePause={togglePause}
+                onTogglePause={handlePlayPause}
                 isPaused={isPaused}
-                onStartPresentation={startPresentation}
+                onStartPresentation={handleAvatarToggle}
+                isAvatarReady={isAvatarReady}
                 isPresenting={isPresenting}
                 onNextSlide={goToNextSlide}
                 onPrevSlide={goToPrevSlide}
