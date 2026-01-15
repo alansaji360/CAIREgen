@@ -153,9 +153,23 @@ const styles = {
     fontSize: '1rem',
     borderRadius: '5px',
     border: '1px solid #ddd',
-    marginRight: '10px',
+    marginRight: '12px',
     outline: 'none',
     transition: 'border 0.3s',
+  },
+  slider: {
+    display: 'inline-flex', 
+    alignItems: 'center', 
+    backgroundColor: '#b4b4b4ff', 
+    // justifyContent: 'center',
+    borderRadius: '5px',
+    padding: '0 10px',
+    height: '42px',
+    transition: 'all 0.3s ease',
+    overflow: 'hidden',
+    marginRight: '12px',
+    marginTop: '12px',
+    cursor: 'pointer'
   },
   log: {
     marginTop: '1.5rem',
@@ -335,8 +349,13 @@ const Controls = ({
   onToggleFullscreen,
   isFullscreen,
   onSkipIntro,
-  introPlaying
+  introPlaying,
+  volume,
+  setVolume
 }) => {
+
+  const [showVolume, setShowVolume] = useState(false);
+
   const darkenColor = (hexColor, factor = 0.8) => {
     if (!hexColor || typeof hexColor !== 'string') {
       return;
@@ -512,6 +531,33 @@ const Controls = ({
         🗑️
       </button>
 
+      <div 
+        style={{...styles.slider, backgroundColor: '#818181ff', width: showVolume ? '145px' : '45px'}}
+        title="Set speaker volume"
+        onMouseEnter={() => setShowVolume(true)}
+        onMouseLeave={() => setShowVolume(false)}
+      >
+        <span style={{ fontSize: '1.2rem', color: 'white' }}>
+          {volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
+        </span>
+        
+        {showVolume && (
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            style={{ 
+              marginLeft: '10px', 
+              width: '100px',
+              cursor: 'pointer' 
+            }}
+          />
+        )}
+      </div>
+
     </div>
   );
 };
@@ -638,6 +684,7 @@ export default function Home() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
+  const [volume, setVolume] = useState(1);
 
   const appendLog = useCallback((msg) => {
     setLogs((l) => {
@@ -957,47 +1004,17 @@ export default function Home() {
       return;
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite', generationConfig: { responseMimeType: 'text/plain' } });
-    const currentSlideContent = `Slide ${currentSlide + 1}: Topic - ${slideData[currentSlide]?.topic}. Content - ${slideData[currentSlide]?.content}`;
-    const prompt = `You are an instructor giving a college lecture. A student has asked the following question during a presentation: "${questionText}". The current slide being discussed is: ${currentSlideContent}. Provide a clear, concise, and informative answer (2-4 sentences) in ${selectedLanguage.toUpperCase()}, suitable for an avatar to narrate. End with a smooth transition statement to return to the lecture content, such as "Now, let's get back to our discussion on [topic]."`;
-
-    try {
-      const result = await model.generateContent(prompt);
-      const answer = result.response.text().trim();
-      // appendLog('Answer received from Gemini.');
-      setIsAnsweringQuestion(true);
-      speak(answer);
-      setQuestionText('');
-      setIsAnsweringQuestion(false);
-    } catch (error) {
-      appendLog(`Gemini error while answering: ${error.message}`);
-      speak('Sorry, I encountered an error while trying to answer your question. Let\'s continue with the lecture.');
-      resumeNarration();
-    }
-  }, [isAvatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
-
-  useEffect(() => {
-    const loadDeckData = async () => {
-      const { deck: deckId } = router.query;
-
-      if (deckId) {
-        if (typeof deckId !== 'string' || deckId.trim() === '') {
-          setError('Invalid presentation link');
-          appendLog('Invalid deck ID format');
+    t geGEendLog('Invalid deck ID format');
           setLoading(false);
           return;
         }
-
-        try {
           setLoading(true);
 
           const response = await fetch(`/api/prisma/${deckId}`);
 
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-
-            if (response.status === 404) {
+            const errorData = aw
+            esponse.status === 404) {
               setError('Presentation not found');
               appendLog(`Presentation not found: ${deckId}`);
             } else if (response.status === 400) {
@@ -1057,6 +1074,40 @@ export default function Home() {
     setTimeout(startStream, 500);
     appendLog('Stream restarted');
   }, [stopStream, startStream, appendLog]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          goToPrevSlide();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          goToNextSlide();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setVolume((prev) => Math.min(prev + 0.05, 1));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setVolume((prev) => Math.max(prev - 0.05, 0));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goToNextSlide, goToPrevSlide]);
 
   // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
@@ -1127,6 +1178,8 @@ export default function Home() {
                 setQuestionText={setQuestionText}
                 onToggleFullscreen={toggleFullscreen}
                 isFullscreen={isFullscreen}
+                volume={volume}
+                setVolume={setVolume}
               />
               <LogViewer logs={logs} />
             </div>
