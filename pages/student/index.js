@@ -972,7 +972,11 @@ export default function Home() {
         }
         setisAvatarReady(true);
       });
-      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => appendLog(`Stream disconnected: ${e ? e.reason : 'Timeout'}`));
+      avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => {
+        appendLog(`Stream disconnected: ${e ? e.reason : 'Timeout'}`);
+        setisAvatarReady(false);
+        setIsPresenting(false);
+      });
 
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
         if (isPresenting && currentSlide < slideData.length - 1) {
