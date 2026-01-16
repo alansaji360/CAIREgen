@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { useRouter } from 'next/router';
 import { Figtree } from 'next/font/google';
 
 
@@ -27,38 +28,17 @@ export default function AdminPage() {
   const [regenPending, setRegenPending] = useState({});           // { [slideId]: boolean }
   const [language, setLanguage] = useState(undefined);           // string|undefined
 
-  // NEW: State to manage the expanded image modal
+  const router = useRouter();
+
   const [modalImageUrl, setModalImageUrl] = useState(null);
 
 
   const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
 
-
-  // Fetch all decks on page load
   useEffect(() => {
     fetchDecks();
   }, []);
 
-
-  // const fetchDecks = async () => {
-  //   setLoading(true);
-  //   try {
-  //     const response = await fetch('/api/admin/prisma/decks/decks');
-  //     if (!response.ok) throw new Error('Failed to fetch decks');
-
-
-  //     const data = await response.json();
-  //     // Sort by createdAt descending for newer first
-  //     // const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  //     setDecks(data);
-  //     appendLog(`Loaded ${sortedData.length} decks`);
-  //   } catch (error) {
-  //     console.error('Error fetching decks:', error);
-  //     appendLog(`Error loading decks: ${error.message}`);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const fetchDecks = async () => {
     setLoading(true);
@@ -66,53 +46,30 @@ export default function AdminPage() {
       const response = await fetch('/api/admin/prisma/decks/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
 
+
       const data = await response.json();
+      setDecks(data);
 
-      // --- DEBUGGING START ---
-      // This will log the entire array of decks to your browser's console.
-      console.log('Full API Response:', data);
-
-      // This will log the details of the very first deck in the list.
-      // We can check its 'slides' array to see if imageUrl is there.
-      if (data && data.length > 0) {
-        console.log('First deck object:', data[0]);
-
-        // Check the slides of the first deck
-        if (data[0].slides && data[0].slides.length > 0) {
-          console.log('Slides of the first deck:', data[0].slides);
-          console.log('First slide of the first deck:', data[0].slides[0]);
-        } else {
-          console.log('The first deck has no slides.');
-        }
-      }
-      // --- DEBUGGING END ---
-
-      setDecks(data); // Use the data directly from the API
-      appendLog(`Loaded ${data.length} decks`);
-
+      // appendLog(`Loaded ${sortedData.length} decks`);
     } catch (error) {
       console.error('Error fetching decks:', error);
-      appendLog(`Error loading decks: ${error.message}`);
+      // appendLog(`Error loading decks: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
-
 
   const deleteDeck = async (deckId, deckTitle) => {
     if (!window.confirm(`Are you sure you want to delete "${deckTitle}"? This will also delete all its slides.`)) {
       return;
     }
 
-
     appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
-
 
     try {
       const response = await fetch(`/api/admin/prisma/decks/${deckId}`, {
         method: 'DELETE'
       });
-
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -122,11 +79,8 @@ export default function AdminPage() {
         throw new Error(errorData.error || 'Failed to delete deck');
       }
 
-
-      // Remove from local state
       setDecks(decks.filter(deck => deck.id !== deckId));
       appendLog(`Successfully deleted "${deckTitle}"`);
-
 
     } catch (error) {
       console.error('Error deleting deck:', error);
@@ -134,18 +88,13 @@ export default function AdminPage() {
     }
   };
 
-
   const deleteMultiple = async (selectedIds) => {
     if (selectedIds.length === 0) return;
-
 
     if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} decks?`)) {
       return;
     }
-
-
     appendLog(`Deleting ${selectedIds.length} decks...`);
-
 
     try {
       const response = await fetch('/api/admin/prisma/decks/bulk-delete', {
@@ -153,7 +102,6 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds })
       });
-
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -163,19 +111,15 @@ export default function AdminPage() {
         throw new Error(errorData.error || 'Failed to delete decks');
       }
 
-
-      // Remove from local state
       setDecks(decks.filter(deck => !selectedIds.includes(deck.id)));
       setSelectedDecks([]);
       appendLog(`Successfully deleted ${selectedIds.length} decks`);
-
 
     } catch (error) {
       console.error('Error deleting decks:', error);
       appendLog(`Error deleting decks: ${error.message}`);
     }
   };
-
 
   const fetchQuestions = async (deckId) => {
     try {
@@ -189,28 +133,21 @@ export default function AdminPage() {
     }
   };
 
-
-  // NEW: Delete a single question
   const deleteQuestion = async (deckId, questionId) => {
     if (!window.confirm('Are you sure you want to delete this question?')) return;
 
-
     appendLog(`Deleting question ${questionId}...`);
-
 
     try {
       const response = await fetch(`/api/admin/prisma/questions/${questionId}`, {
         method: 'DELETE'
       });
 
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to delete question');
       }
 
-
-      // Update local state to remove the question
       setDeckQuestions(prev => ({
         ...prev,
         [deckId]: prev[deckId].filter(q => q.id !== questionId)
@@ -222,8 +159,6 @@ export default function AdminPage() {
     }
   };
 
-
-  // Gemini summarization
   const summarizeQuestions = async (deckId, questions) => {
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY; // Use your env var
     if (!GEMINI_API_KEY) {
@@ -231,14 +166,11 @@ export default function AdminPage() {
       return;
     }
 
-
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
 
-
     const questionTexts = questions.map(q => q.text).join('\n');
     const prompt = `Summarize these student questions from a lecture: "${questionTexts}". Identify the most common topics, areas with the least understanding (e.g., frequent confusion), and key insights for the professor. Keep it concise (3-5 sentences). Output as plain text.`;
-
 
     try {
       const result = await model.generateContent(prompt);
@@ -249,7 +181,6 @@ export default function AdminPage() {
       appendLog(`Gemini error: ${error.message}`);
     }
   };
-
 
   const copyLink = (deckId) => {
     const link = `${window.location.origin}/student/?deck=${deckId}`;
@@ -265,7 +196,6 @@ export default function AdminPage() {
       });
   };
 
-
   async function fetchNarrations(deckId, lang) {
     const params = new URLSearchParams({ deckId: String(deckId) });
     if (lang) params.set('language', lang);
@@ -273,10 +203,8 @@ export default function AdminPage() {
     if (!res.ok) throw new Error('Failed to fetch narrations');
     const { narrations } = await res.json();
 
-
     const bySlide = {};
     for (const n of narrations) bySlide[Number(n.slideId)] = n.text;
-
 
     setDeckNarrations(prev => ({
       ...prev,
@@ -284,8 +212,6 @@ export default function AdminPage() {
     }));
   }
 
-
-  // Local edit helper
   function setSlideText(deckId, slideId, text) {
     setDeckNarrations(prev => ({
       ...prev,
@@ -296,12 +222,9 @@ export default function AdminPage() {
     }));
   }
 
-
-  // Save edited narration (no overwrite)
   async function saveNarration(deckId, slideId) {
     const text = (deckNarrations[deckId]?.bySlide?.[slideId] || '').trim();
     if (!text) return;
-
 
     const res = await fetch('/api/prisma/narration', {
       method: 'POST',
@@ -312,25 +235,19 @@ export default function AdminPage() {
     appendLog(`Saved narration for slide ${slideId}`);
   }
 
-
-  // Regenerate per slide (optimistic)
   async function regenerateNarration(deckId, slideId) {
     setRegenPending(p => ({ ...p, [slideId]: true }));
     const prev = deckNarrations[deckId]?.bySlide?.[slideId];
 
-
     try {
-      // Replace this with your actual generator call
       const newText = `Auto-regenerated narration for slide ${slideId}.`;
       setSlideText(deckId, slideId, newText);
-
 
       await fetch('/api/prisma/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slideId, text: newText, language: language || 'en', overwrite: true })
       });
-
 
       appendLog(`Regenerated narration for slide ${slideId}`);
     } catch (e) {
@@ -341,12 +258,10 @@ export default function AdminPage() {
     }
   }
 
-
   const filteredDecks = decks.filter(deck =>
     deck.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     deck.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
 
   const toggleSelection = (deckId) => {
     if (selectedDecks.includes(deckId)) {
@@ -356,13 +271,17 @@ export default function AdminPage() {
     }
   };
 
-
   const selectAll = () => {
     if (selectedDecks.length === filteredDecks.length) {
       setSelectedDecks([]);
     } else {
       setSelectedDecks(filteredDecks.map(deck => deck.id));
     }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout');
+    router.push('/login');
   };
 
 
@@ -430,6 +349,18 @@ export default function AdminPage() {
         }}>
           Home
         </a>
+        <button onClick={handleLogout} style={{
+          padding: '8px 16px',
+          backgroundColor: '#dc3545',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: 'inherit'
+        }}>
+          Logout
+        </button>
       </div>
 
 
@@ -818,4 +749,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

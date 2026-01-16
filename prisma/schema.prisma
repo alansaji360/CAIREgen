@@ -57,3 +57,9 @@ model Narration {
   version         Int       @default(1)   
   isActive        Boolean   @default(true) 
 }
+
+model Credentials {
+  id       String @id @default(cuid())
+  username String @unique
+  password String // This will store the hashed password
+}

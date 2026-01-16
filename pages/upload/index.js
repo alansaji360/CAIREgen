@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Figtree } from 'next/font/google';
+import { useRouter } from 'next/router';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Configure Figtree font
@@ -168,6 +169,8 @@ export default function SlideManager() {
 
   const fileInputRef = useRef(null);
 
+  const router = useRouter();
+  
   // Predefined avatars
   const availableAvatars = [
     { id: 'avatar1', name: '1', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0Yjc0OGYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
@@ -434,6 +437,11 @@ export default function SlideManager() {
     }
   };
 
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout');
+    router.push('/login');
+  };
+
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '900px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
       <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>Deck Upload</h1>
@@ -457,6 +465,18 @@ export default function SlideManager() {
         }}>
           Home
         </a>
+        <button onClick={handleLogout} style={{
+          padding: '8px 16px',
+          backgroundColor: '#dc3545',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: 'inherit'
+        }}>
+          Logout
+        </button>
       </div>
       {/* Deck Settings */}
       <div style={{

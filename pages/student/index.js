@@ -530,30 +530,21 @@ const ErrorScreen = ({ error }) => (
     <h2>❌ {error}</h2>
     <p>The presentation link may be invalid or expired.</p>
     <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-      <a
-        href="/upload"
+      <button
+        onClick={() => window.location.reload()}
         style={{
-          color: '#0070f3',
-          textDecoration: 'none',
-          padding: '10px 20px',
-          border: '2px solid #0070f3',
-          borderRadius: '5px'
+          padding: '10px 22px',
+          backgroundColor: '#007bff',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontWeight: 'bold',
+          fontSize: '1rem',
         }}
       >
-        ← Create New Presentation
-      </a>
-      <a
-        href="/"
-        style={{
-          color: '#28a745',
-          textDecoration: 'none',
-          padding: '10px 20px',
-          border: '2px solid #28a745',
-          borderRadius: '5px'
-        }}
-      >
-        🏠 Home
-      </a>
+        Reload Page
+      </button>
     </div>
   </div>
 );

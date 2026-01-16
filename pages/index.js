@@ -1,6 +1,7 @@
 'use client'; // Force client-side rendering
 
 import React from 'react';
+import { useRouter } from 'next/router';
 import { Figtree } from 'next/font/google';
 
 // Configure Figtree font
@@ -78,7 +79,13 @@ const hoverStyles = {
 
 // Main Welcome Page Component
 export default function Home() {
+  const router = useRouter();
   const [hoveredButton, setHoveredButton] = React.useState(null);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout');
+    router.push('/login');
+  };
 
   return (
     <div className={figtree.variable} style={styles.container}>
@@ -120,6 +127,18 @@ export default function Home() {
         >
           Manage Decks (Admin Page)
         </a>
+        <button 
+          onClick={handleLogout}
+          style={{
+            ...styles.button,
+            backgroundColor: '#dc3545',
+            ...(hoveredButton === 'logout' ? hoverStyles : {})
+          }}
+          onMouseEnter={() => setHoveredButton('logout')}
+          onMouseLeave={() => setHoveredButton(null)}
+        >
+          Logout
+        </button>
       </div>
 
       <div style={styles.section}>
