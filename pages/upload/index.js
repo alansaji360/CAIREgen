@@ -156,7 +156,9 @@ async function translateNarrationsClient(sourceScript, targetLanguage, appendLog
 export default function SlideManager() {
   const [status, setStatus] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [deckTitle, setDeckTitle] = useState('');
+  const [classCode, setClassCode] = useState('');
+  const [lectureNumber, setLectureNumber] = useState('');
+  const [lectureName, setLectureName] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [extractedSlides, setExtractedSlides] = useState([]);
@@ -309,7 +311,11 @@ export default function SlideManager() {
 
     try {
       // Validate inputs
-      if (!deckTitle.trim()) throw new Error('Please enter a deck title');
+      if (!classCode.trim() || !lectureNumber.trim() || !lectureName.trim()) {
+        throw new Error('Please enter Class Code, Lecture Number, and Lecture Name');
+      }
+      const deckTitle = `${classCode.trim()} - ${lectureNumber.trim()} - ${lectureName.trim()}`;
+
       if (!selectedAvatar) throw new Error('Please select an avatar');
 
       // 1) If user selected a PDF but you haven't uploaded it to Blob yet, upload it now.
@@ -356,7 +362,7 @@ export default function SlideManager() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           slides: slidesToUpload,
-          deckTitle: deckTitle.trim(),
+          deckTitle: deckTitle,
           avatar: selectedAvatar,
           fileUrl: uploadedFileUrl || null // include the blob URL if available
         })
@@ -422,7 +428,9 @@ export default function SlideManager() {
       }
       
       // Reset form on success
-      setDeckTitle('');
+      setClassCode('');
+      setLectureNumber('');
+      setLectureName('');
       setSelectedAvatar('');
       setExtractedSlides([]);
       setManualSlides([{ topic: '', content: '', image: '' }]);
@@ -488,25 +496,67 @@ export default function SlideManager() {
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Deck Parameters</h2>
 
-        {/* Deck Title */}
+        {/* Deck Details */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-            Deck Title:
-          </label>
-          <input
-            type="text"
-            value={deckTitle}
-            onChange={(e) => setDeckTitle(e.target.value)}
-            placeholder="Enter slide deck title..."
-            style={{
-              width: '100%',
-              padding: '12px',
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-              fontSize: '16px',
-              boxSizing: 'border-box'
-            }}
-          />
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Class Code:
+              </label>
+              <input
+                type="text"
+                value={classCode}
+                onChange={(e) => setClassCode(e.target.value)}
+                placeholder="e.g. CS101"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                Lecture Number:
+              </label>
+              <input
+                type="text"
+                value={lectureNumber}
+                onChange={(e) => setLectureNumber(e.target.value)}
+                placeholder="e.g. 01"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              Lecture Name:
+            </label>
+            <input
+              type="text"
+              value={lectureName}
+              onChange={(e) => setLectureName(e.target.value)}
+              placeholder="e.g. Intro to Algorithms"
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                fontSize: '16px',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
         </div>
 
         {/* Avatar Selection */}
@@ -770,7 +820,7 @@ export default function SlideManager() {
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
         <button
           onClick={createSlideDeck}
-          disabled={isLoading || !selectedAvatar || !deckTitle}
+          disabled={isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName}
           style={{
             padding: '15px 30px',
             backgroundColor: '#007bff',
@@ -778,8 +828,8 @@ export default function SlideManager() {
             border: 'none',
             borderRadius: '8px',
             fontSize: '18px',
-            cursor: (isLoading || !selectedAvatar || !deckTitle) ? 'not-allowed' : 'pointer',
-            opacity: (isLoading || !selectedAvatar || !deckTitle) ? 0.6 : 1
+            cursor: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 'not-allowed' : 'pointer',
+            opacity: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 0.6 : 1
           }}
         >
           {isLoading ? 'Creating...' : 'Create Slide Deck'}

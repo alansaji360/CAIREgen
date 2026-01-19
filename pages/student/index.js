@@ -483,6 +483,10 @@ const styles = {
   ready: {
     backgroundColor: '#28a745',
   },
+  connecting: {
+    backgroundColor: '#17a2b8',
+    cursor: 'wait',
+  },
   generating: {
     backgroundColor: '#ffc107',
   },
@@ -966,6 +970,7 @@ export default function Home() {
   const [volume, setVolume] = useState(1);
   const [isRestarting, setIsRestarting] = useState(false);
   const [showRestartBanner, setShowRestartBanner] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
 
@@ -1155,6 +1160,7 @@ export default function Home() {
     avatarRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setisAvatarReady(false);
+    setIsConnecting(false);
     setIsPresenting(false);
     setIsPaused(false);
     appendLog('🛑 Avatar stopped.');
@@ -1174,6 +1180,7 @@ export default function Home() {
       return;
     }
 
+    setIsConnecting(true);
     setisAvatarReady(false);
     try {
       const token = await fetchToken();
@@ -1192,9 +1199,11 @@ export default function Home() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch((err) => appendLog(`Video play error: ${err.message}`));
+          setIsConnecting(false);
           return;
         }
         setisAvatarReady(true);
+        setIsConnecting(false);
       });
       avatar.on(StreamingEvents.STREAM_DISCONNECTED, (e) => {
         appendLog(`Stream disconnected: ${e?.reason || 'Connection lost'}`);
@@ -1218,6 +1227,7 @@ export default function Home() {
 
       appendLog('Avatar connected');
       setisAvatarReady(true);
+      setIsConnecting(false);
     } catch (error) {
       console.error('Avatar creation error:', error);
       avatarRef.current = null;
@@ -1228,6 +1238,7 @@ export default function Home() {
       } else {
         appendLog(`Failed to start avatar: ${error.message || 'Unknown error'}`);
         setisAvatarReady(false);
+        setIsConnecting(false);
         setError('Avatar connection failed. Please refresh the page.');
       }
     }
@@ -1459,7 +1470,7 @@ export default function Home() {
 
   // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
   return (
-    <div>
+    <div style={{ cursor: isConnecting ? 'wait' : 'auto' }}>
       {loading && <LoadingScreen />}
       {error && <ErrorScreen error={error} />}
       {!loading && !error && (
@@ -1496,15 +1507,15 @@ export default function Home() {
               <div
                 style={{
                   ...styles.indicator,
-                  ...(isGenerating ? styles.generating : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
+                  ...(isGenerating ? styles.generating : isConnecting ? styles.connecting : (isReady && isAvatarReady) ? styles.ready : styles.notReady)
                 }}
-                title={isGenerating ? t.loadingScript : (isReady && isAvatarReady) ? t.readyStart : t.notReady}
+                title={isGenerating ? t.loadingScript : isConnecting ? 'Connecting...' : (isReady && isAvatarReady) ? t.readyStart : t.notReady}
 
 
                 onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
               >
-                {isGenerating ? t.loading : (isReady && isAvatarReady) ? t.ready : t.pressStart}
+                {isGenerating ? t.loading : isConnecting ? 'Connecting' : (isReady && isAvatarReady) ? t.ready : t.pressStart}
               </div>
             </div>
             <div style={styles.fullWidthControls}>
