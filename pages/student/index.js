@@ -271,11 +271,11 @@ const styles = {
     height: '840px',
     borderRadius: '15px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-    background: 'linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%)',
+    background: '#ffffff',
     flexShrink: 0,
-    overflow: 'auto',
+    overflow: 'hidden',
     position: 'relative',
-    transition: 'all 0.3s ease',
+    // transition: 'all 0.3s ease',
   },
   slideshowBoxFullscreen: {
     position: 'fixed',
@@ -307,23 +307,24 @@ const styles = {
     backgroundColor: 'rgba(255,255,255,0.8)',
   },
   slideImageSection: {
-    flex: '1',
+    flex: '1 1 auto',
     minHeight: 0,
     width: '100%',
-    display: 'flex',
+    display: 'block',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   slideImage: {
-    display: 'block',    
+    display: 'inline-block',    
     maxWidth: '75%',     
     maxHeight: '75%',    
     width: 'auto',        
     height: 'auto',       
     objectFit: 'contain', 
     borderRadius: '10px',
-    transition: 'transform 0.3s ease',
+    // transition: 'transform 0.3s ease',
+    
   },
   slideNarration: {
     flex: '0 0 auto', 
@@ -809,7 +810,7 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, setCurren
   
   return (
   <div ref={slideshowRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
-    <div style={{ width: '100%', height: isFullscreen ? '100vh' : '840px', position: 'relative' }}> {/* New wrapper for full sizing */}
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Slide
         ref={slideRef}
         duration={0}
@@ -1329,6 +1330,8 @@ export default function Home() {
   }, [isAvatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
 
    useEffect(() => {
+    let isCancelled = false;
+
     const loadDeckData = async () => {
       const { deck: deckId } = router.query;
 
@@ -1352,6 +1355,8 @@ export default function Home() {
           const deck = await response.json();
           setDeckData(deck);
 
+          if (isCancelled) return;
+
           let finalSlides = [];
           // check filURL
           if (deck.fileUrl) {
@@ -1372,8 +1377,10 @@ export default function Home() {
                 canvas.width = scaledViewport.width;
                 canvas.height = scaledViewport.height;
                 const ctx = canvas.getContext('2d');
+                
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+                await page.render({ canvasContext: ctx, viewport: scaledViewport, intent: 'display' }).promise;
                 
                 finalSlides.push({
                   image: canvas.toDataURL('image/png'),
@@ -1407,12 +1414,16 @@ export default function Home() {
           appendLog(`Network error: ${error.message}`);
           setError('Network error - please try again');
         }
+
+        
       } else if (router.isReady) {
         setSlideData(SAMPLE_SLIDE_DATA);
         appendLog('Using sample slide data');
       }
       setLoading(false);
     };
+
+    if (!isCancelled) setLoading(false);
 
     if (router.isReady) {
       loadDeckData();
