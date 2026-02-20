@@ -273,8 +273,10 @@ const styles = {
     boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
     background: '#ffffff',
     flexShrink: 0,
-    overflow: 'hidden',
+    // overflow: 'auto',
     position: 'relative',
+    overflowY: 'auto',
+    scrollbarGutter: 'stable',
     // transition: 'all 0.3s ease',
   },
   slideshowBoxFullscreen: {
