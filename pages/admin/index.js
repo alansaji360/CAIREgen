@@ -43,7 +43,7 @@ export default function AdminPage() {
   const fetchDecks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/prisma/decks/decks');
+      const response = await fetch('../api/admin/prisma/decks/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
 
 
@@ -67,7 +67,7 @@ export default function AdminPage() {
     appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
 
     try {
-      const response = await fetch(`/api/admin/prisma/decks/${deckId}`, {
+      const response = await fetch(`../api/admin/prisma/decks/${deckId}`, {
         method: 'DELETE'
       });
 
@@ -97,7 +97,7 @@ export default function AdminPage() {
     appendLog(`Deleting ${selectedIds.length} decks...`);
 
     try {
-      const response = await fetch('/api/admin/prisma/decks/bulk-delete', {
+      const response = await fetch('../api/admin/prisma/decks/bulk-delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds })
@@ -123,7 +123,7 @@ export default function AdminPage() {
 
   const fetchQuestions = async (deckId) => {
     try {
-      const response = await fetch(`/api/admin/prisma/questions/${deckId}`);
+      const response = await fetch(`../api/admin/prisma/questions/${deckId}`);
       if (!response.ok) throw new Error('Failed to fetch questions');
       const questions = await response.json();
       setDeckQuestions((prev) => ({ ...prev, [deckId]: questions }));
@@ -139,7 +139,7 @@ export default function AdminPage() {
     appendLog(`Deleting question ${questionId}...`);
 
     try {
-      const response = await fetch(`/api/admin/prisma/questions/${questionId}`, {
+      const response = await fetch(`../api/admin/prisma/questions/${questionId}`, {
         method: 'DELETE'
       });
 
@@ -199,7 +199,7 @@ export default function AdminPage() {
   async function fetchNarrations(deckId, lang) {
     const params = new URLSearchParams({ deckId: String(deckId) });
     if (lang) params.set('language', lang);
-    const res = await fetch(`/api/prisma/narration?${params.toString()}`);
+    const res = await fetch(`../api/prisma/narration?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch narrations');
     const { narrations } = await res.json();
 
@@ -226,7 +226,7 @@ export default function AdminPage() {
     const text = (deckNarrations[deckId]?.bySlide?.[slideId] || '').trim();
     if (!text) return;
 
-    const res = await fetch('/api/prisma/narration', {
+    const res = await fetch('../api/prisma/narration', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slideId, text, language: language || 'en', overwrite: false })
@@ -243,7 +243,7 @@ export default function AdminPage() {
       const newText = `Auto-regenerated narration for slide ${slideId}.`;
       setSlideText(deckId, slideId, newText);
 
-      await fetch('/api/prisma/narration', {
+      await fetch('../api/prisma/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slideId, text: newText, language: language || 'en', overwrite: true })
@@ -280,7 +280,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout');
+    await fetch('../api/auth/logout');
     router.push('/login');
   };
 

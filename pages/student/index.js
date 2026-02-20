@@ -1132,16 +1132,13 @@ export default function Home() {
 
   const handlePlayPause = useCallback(() => {
     if (!isPresenting) {
-      // Start the presentation
       if (!isAvatarReady) {
         appendLog('Please start the avatar first.');
         return;
       }
       setIsPresenting(true);
       setIsPaused(false);
-      // The useEffect for isPresenting will handle goToSlide(0)
     } else {
-      // Toggle pause
       if (isPaused) {
         resumeNarration();
       } else {
@@ -1363,51 +1360,74 @@ export default function Home() {
       if (deckId) {
         if (typeof deckId !== 'string' || deckId.trim() === '') {
           setError('Invalid presentation link');
-          appendLog('Invalid deck ID format');
           setLoading(false);
           return;
         }
 
         try {
           setLoading(true);
-
+          // appendLog('Fetching deck metadata...');
           const response = await fetch(`/api/prisma/${deckId}`);
 
           if (!response.ok) {
-            // Fixed syntax errors here
-            if (response.status === 404) {
-              setError('Presentation not found');
-              appendLog(`Presentation not found: ${deckId}`);
-            } else if (response.status === 400) {
-              setError('Invalid presentation link');
-              appendLog(`Invalid deck ID: ${deckId}`);
-            } else {
-              setError('Failed to load presentation');
-              appendLog(`Failed to load presentation: ${response.status}`);
-            }
+            setError('Failed to load presentation');
             setLoading(false);
             return;
           }
 
           const deck = await response.json();
-
-          if (!deck || !deck.slides || !Array.isArray(deck.slides)) {
-            setError('Invalid presentation data');
-            appendLog('Received invalid deck data from server');
-            setLoading(false);
-            return;
-          }
-
           setDeckData(deck);
 
-          const transformedSlides = deck.slides.map((slide, index) => ({
-            image: slide.image,
-            alt: slide.alt || `Slide ${index + 1}`,
-            topic: slide.topic,
-            content: slide.content
-          }));
+          let finalSlides = [];
+          // appendLog(deck.fileUrl)
+          // LOGIC: If DB has no slides but has a fileUrl, parse the PDF on the client
+          if (deck.fileUrl) {
+            // appendLog('📄 Parsing PDF from Blob storage...');
+            
+            try {
+              const pdfjsLib = await import('pdfjs-dist');
+              pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
-          setSlideData(transformedSlides);
+              const pdf = await pdfjsLib.getDocument(deck.fileUrl).promise;
+              const targetWidth = 1494; // Match your SlideshowBox width
+
+              for (let i = 1; i <= pdf.numPages; i++) {
+                // appendLog(`- Rendering slide ${i}/${pdf.numPages}...`);
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 1 });
+                const scale = Math.min(targetWidth / viewport.width, 2.0);
+                const scaledViewport = page.getViewport({ scale });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = scaledViewport.width;
+                canvas.height = scaledViewport.height;
+                const ctx = canvas.getContext('2d');
+
+                await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+                
+                finalSlides.push({
+                  image: canvas.toDataURL('image/png'),
+                  alt: `${deck.title} - Slide ${i}`,
+                  topic: `Page ${i}`,
+                  content: "" // rely on DB for text if available, or just use the image
+                });
+              }
+              appendLog('Slides Ready');
+            } catch (pdfError) {
+              console.error("PDF Parsing Error:", pdfError);
+              appendLog(`❌ Error rendering PDF: ${pdfError.message}`);
+            }
+          } else {
+            // Otherwise, use slides from DB 
+            finalSlides = deck.slides.map((slide, index) => ({
+              image: slide.image,
+              alt: slide.alt || `Slide ${index + 1}`,
+              topic: slide.topic,
+              content: slide.content
+            }));
+          }
+
+          setSlideData(finalSlides);
 
           const avatarConfig = AVATAR_CONFIGS[deck.avatar];
           if (avatarConfig) {
@@ -1418,7 +1438,7 @@ export default function Home() {
           appendLog(`Network error: ${error.message}`);
           setError('Network error - please try again');
         }
-      } else {
+      } else if (router.isReady) {
         setSlideData(SAMPLE_SLIDE_DATA);
         appendLog('Using sample slide data');
       }
@@ -1437,11 +1457,11 @@ export default function Home() {
   }, [volume]);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e) => { // Prevent shortcuts when typing in inputs
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
 
-      switch (e.key) {
-        case 'ArrowLeft':
+      switch (e.key) { // Global shortcuts
+        case 'ArrowLeft': 
           e.preventDefault();
           goToPrevSlide();
           break;

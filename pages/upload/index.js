@@ -121,36 +121,39 @@ async function translateNarrationsClient(sourceScript, targetLanguage, appendLog
     model: 'gemini-2.5-flash-lite',
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: { type: 'array', items: { type: 'string' } },
+      responseSchema: { 
+        type: 'array', 
+        items: { type: 'string' } 
+      },
     },
   });
 
-  const batchSize = 10;
-  const batches = [];
-  for (let i = 0; i < sourceScript.length; i += batchSize) {
-    batches.push(sourceScript.slice(i, i + batchSize));
-  }
+  appendLog(`Translating all ${sourceScript.length} slides to ${targetLanguage}...`);
 
-  let fullTranslated = [];
+  const prompt = `Translate the following JSON array of presentation narrations into ${targetLanguage}. 
+    Maintain the academic professor tone and ensure technical terms are translated accurately.
+    Return ONLY a valid JSON array of strings containing exactly ${sourceScript.length} items.
+    
+    Source JSON: ${JSON.stringify(sourceScript)}`;
 
-  for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i];
-    const prompt = `Translate the following array of presentation narration strings into ${targetLanguage}. ` +
-      `Return ONLY a valid JSON array of strings. Maintain the tone and length. ` +
-      `\n\n${JSON.stringify(batch)}`;
+  try {
+    const result = await model.generateContent(prompt);
+    let responseText = result.response.text();
+    
+    // Clean up any potential markdown formatting
+    responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    const translatedArray = JSON.parse(responseText);
 
-    try {
-      const result = await model.generateContent(prompt);
-      let responseText = result.response.text();
-      responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const json = JSON.parse(responseText);
-      fullTranslated = [...fullTranslated, ...json];
-    } catch (error) {
-      appendLog(`Translation error batch ${i + 1}: ${error.message}`);
-      fullTranslated = [...fullTranslated, ...batch]; // Fallback to original
+    if (translatedArray.length !== sourceScript.length) {
+      appendLog(`⚠️ Translation length mismatch. Got ${translatedArray.length}, expected ${sourceScript.length}.`);
     }
+
+    return translatedArray;
+  } catch (error) {
+    appendLog(`Translation error: ${error.message}`);
+    return sourceScript; // Fallback to original English
   }
-  return fullTranslated;
 }
 
 export default function SlideManager() {
@@ -173,7 +176,6 @@ export default function SlideManager() {
 
   const router = useRouter();
   
-  // Predefined avatars
   const availableAvatars = [
     { id: 'avatar1', name: '1', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0Yjc0OGYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
     { id: 'avatar2', name: '2', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiNmNGE2NjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
@@ -181,7 +183,12 @@ export default function SlideManager() {
     { id: 'avatar4', name: '4', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyZGE0NGUiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' }
   ];
 
-  const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  // const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  const appendLog = (msg) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const newLine = `[${timestamp}] ${msg}\n`;
+    setStatus(prevStatus => prevStatus + newLine);
+  };
 
   // Handle PDF upload and parsing
   const handlePDFUpload = (event) => {
@@ -304,7 +311,7 @@ export default function SlideManager() {
     return res.json(); // { url, pathname, size, contentType }
   }
 
-  // Create slide deck (UPDATED FOR NEW API)
+  // Create slide deck 
   const createSlideDeck = async () => {
     setIsLoading(true);
     appendLog('Creating slide deck...');
@@ -318,23 +325,20 @@ export default function SlideManager() {
 
       if (!selectedAvatar) throw new Error('Please select an avatar');
 
-      // 1) If user selected a PDF but you haven't uploaded it to Blob yet, upload it now.
-      //    The parsing is already done in your effect, so uploadedFile is null by now.
-      //    If you want to upload the original file to Blob at selection time instead, move this into handlePDFUpload.
-      if (!uploadedFileUrl && fileInputRef.current?.files?.[0]) {
-        const file = fileInputRef.current.files[0];
-        appendLog(`Uploading original PDF "${file.name}" to Blob...`);
-        const blobInfo = await uploadToBlob(file);
-        setUploadedFileUrl(blobInfo.url);
-        appendLog(`Blob stored: ${blobInfo.url}`);
-      }
-
-      // 2) Build slide metadata to send — keep as small as reasonable.
       let slidesToUpload = [];
+      let BlobURL = '';
 
       if (activeTab === 'pdf' && extractedSlides.length > 0) {
+        const file = fileInputRef.current.files[0];
+        // appendLog(`Uploading original PDF "${file.name}" to Blob...`);
+        const blobInfo = await uploadToBlob(file);
+        setUploadedFileUrl(blobInfo.url);
+        // appendLog(`Blob stored: ${blobInfo.url}`);
+        BlobURL = blobInfo.url;
+        // print(`Blob upload result: ${JSON.stringify(blobInfo)}`);
+        
         slidesToUpload = extractedSlides.map((slide, index) => ({
-          image: slide.image, // consider trimming images or deferring image generation server-side if size is large
+          fileURL: BlobURL, 
           alt: `${deckTitle} - Slide ${index + 1}`,
           topic: slide.topic,
           content: slide.content
@@ -355,8 +359,7 @@ export default function SlideManager() {
 
       appendLog('Sending deck data to server...');
 
-      // 3) Call your existing slides API with small JSON:
-      //    IMPORTANT: Include fileUrl (original PDF Blob URL) so you don’t need to POST the PDF body.
+      // Call slides API with small JSON
       const response = await fetch('/api/prisma/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -364,7 +367,7 @@ export default function SlideManager() {
           slides: slidesToUpload,
           deckTitle: deckTitle,
           avatar: selectedAvatar,
-          fileUrl: uploadedFileUrl || null // include the blob URL if available
+          fileUrl: BlobURL || '', 
         })
       });
 

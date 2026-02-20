@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       bodyKeys: req.body ? Object.keys(req.body) : []
     });
 
-    const { slides, deckTitle, avatar } = req.body;
+    const { slides, deckTitle, avatar, fileUrl} = req.body;
 
     // Enhanced validation with logging
     if (!slides) {
@@ -97,6 +97,7 @@ export default async function handler(req, res) {
         data: {
           title: deckTitle.trim(),
           avatar: avatar,
+          fileUrl: fileUrl || "",
           presentationUrl: '', // Will be updated below
           slides: {
             create: validSlides
