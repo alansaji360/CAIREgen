@@ -557,64 +557,6 @@ const ErrorScreen = ({ error }) => (
   </div>
 );
 
-const darkenColor = (hexColor, factor = 0.8) => {
-  if (!hexColor || typeof hexColor !== 'string') {
-    return;
-  }
-
-  hexColor = hexColor.replace('#', '');
-  const r = parseInt(hexColor.substring(0, 2), 16);
-  const g = parseInt(hexColor.substring(2, 4), 16);
-  const b = parseInt(hexColor.substring(4, 6), 16);
-
-  const max = Math.max(r, g, b) / 255;
-  const min = Math.min(r, g, b) / 255;
-  let h, s, l = (max + min) / 2;
-
-  if (max === min) {
-    h = s = 0;
-  } else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r / 255: h = (g / 255 - b / 255) / d + (g / 255 < b / 255 ? 6 : 0); break;
-      case g / 255: h = (b / 255 - r / 255) / d + 2; break;
-      case b / 255: h = (r / 255 - g / 255) / d + 4; break;
-    }
-    h /= 6;
-  }
-
-  l = Math.max(0, l * factor);
-
-  const rgbToHex = (c) => {
-    const hex = Math.round(c * 255).toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-
-  if (s === 0) {
-    const val = Math.round(l * 255);
-    return `#${rgbToHex(val / 255)}${rgbToHex(val / 255)}${rgbToHex(val / 255)}`;
-  }
-
-  const hue2rgb = (p, q, t) => {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-
-  const red = hue2rgb(p, q, h + 1 / 3);
-  const green = hue2rgb(p, q, h);
-  const blue = hue2rgb(p, q, h - 1 / 3);
-
-  return `#${rgbToHex(red)}${rgbToHex(green)}${rgbToHex(blue)}`;
-};
-
 const Controls = ({
   onClearLog,
   onRegenerate,
@@ -1182,7 +1124,7 @@ export default function Home() {
     appendLog('Avatar stopped.');
   }, [appendLog]);
 
-  // EFFECT: Auto-stop stream on unmount
+  // Auto-stop stream on unmount
   useEffect(() => {
     return () => stopStream();
   }, [stopStream]);
@@ -1549,7 +1491,8 @@ export default function Home() {
             </div>
             <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} selectedLanguage={selectedLanguage} />
           </div>
-
+          
+          {/* Avatar Component */}
           <div style={styles.controlsContainer}>
             <div style={styles.indicatorContainer}>
               <div

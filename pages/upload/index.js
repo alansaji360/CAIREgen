@@ -1,24 +1,25 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Figtree } from 'next/font/google';
 import { useRouter } from 'next/router';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
-// Configure Figtree font
+// Figtree font
 const figtree = Figtree({
   subsets: ['latin'],
   variable: '--font-figtree',
 });
 
-
+// Slide Fetch
 async function fetchSlidesForDeck(deckId) {
-  // Minimal deck slides fetch; adjust path to your existing read endpoint if different
   const res = await fetch(`/api/prisma/${deckId}`);
   if (!res.ok) throw new Error(`Failed to fetch slides for deck ${deckId}`);
   const data = await res.json();
-  // Expecting { slides: [...] } or deck object with slides; normalize:
   return data.slides || data?.deck?.slides || [];
 }
 
+// Narration Helpers
 async function persistNarrations(items, deckId, overwrite = true) {
   const res = await fetch('/api/prisma/narration', {
     method: 'POST',
@@ -26,7 +27,7 @@ async function persistNarrations(items, deckId, overwrite = true) {
     body: JSON.stringify({
       deckId,
       overwrite,
-      items, // [{ slideId, text, language }]
+      items,
     }),
   });
   if (!res.ok) {
@@ -90,7 +91,6 @@ async function generateNarrationsClient(slides, selectedLanguage, appendLog) {
           appendLog(`⚠️ Batch ${batchIndex + 1} script too long (${script.length}/${batch.length}) - Truncating`);
           script = script.slice(0, batch.length);
         }
-
         return script;
       } catch (error) {
         appendLog(`Gemini error on batch ${batchIndex + 1} attempt ${attempt}: ${error.message}`);
@@ -105,7 +105,6 @@ async function generateNarrationsClient(slides, selectedLanguage, appendLog) {
     const batchScript = await attemptGeneration();
     fullScript = [...fullScript, ...batchScript];
   }
-
   return fullScript;
 }
 
@@ -121,14 +120,12 @@ async function translateNarrationsClient(sourceScript, targetLanguage, appendLog
     model: 'gemini-2.5-flash-lite',
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: { 
-        type: 'array', 
-        items: { type: 'string' } 
+      responseSchema: {
+        type: 'array',
+        items: { type: 'string' }
       },
     },
   });
-
-  // appendLog(`Translating all ${sourceScript.length} slides to ${targetLanguage}...`);
 
   const prompt = `Translate the following JSON array of presentation narrations into ${targetLanguage}. 
     Maintain the academic professor tone and ensure technical terms are translated accurately.
@@ -139,20 +136,15 @@ async function translateNarrationsClient(sourceScript, targetLanguage, appendLog
   try {
     const result = await model.generateContent(prompt);
     let responseText = result.response.text();
-    
-    // Clean up any potential markdown formatting
     responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-    
     const translatedArray = JSON.parse(responseText);
-
     if (translatedArray.length !== sourceScript.length) {
       appendLog(`⚠️ Translation length mismatch. Got ${translatedArray.length}, expected ${sourceScript.length}.`);
     }
-
     return translatedArray;
   } catch (error) {
     appendLog(`Translation error: ${error.message}`);
-    return sourceScript; // Fallback to original English
+    return sourceScript;
   }
 }
 
@@ -165,17 +157,20 @@ export default function SlideManager() {
   const [selectedAvatar, setSelectedAvatar] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [extractedSlides, setExtractedSlides] = useState([]);
-  const [manualSlides, setManualSlides] = useState([
-    { topic: '', content: '', image: '' }
-  ]);
+
+  const [manualSlides, setManualSlides] = useState([{ topic: '', content: '', image: '' }]);
+
   const [activeTab, setActiveTab] = useState('pdf');
   const [presentationUrl, setPresentationUrl] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
+  
+  const [Prompt, setPrompt] = useState('');
+  const [slides, setSlides] = useState([]);
+  const [slideCount, setSlideCount] = useState(8);
 
   const fileInputRef = useRef(null);
-
   const router = useRouter();
-  
+
   const availableAvatars = [
     { id: 'avatar1', name: '1', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiM0Yjc0OGYiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
     { id: 'avatar2', name: '2', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiNmNGE2NjEiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' },
@@ -183,17 +178,9 @@ export default function SlideManager() {
     { id: 'avatar4', name: '4', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyZGE0NGUiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' }
   ];
 
-  // AppenLog Single
   const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
-  
-  // // AppendLog Continuous
-  // const appendLog = (msg) => {
-  //   const timestamp = new Date().toLocaleTimeString();
-  //   const newLine = `[${timestamp}] ${msg}\n`;
-  //   setStatus(prevStatus => prevStatus + newLine);
-  // };
 
-  // Handle PDF upload and parsing
+  // PDF Helpers
   const handlePDFUpload = (event) => {
     const file = event.target.files[0];
     if (!file || file.type !== 'application/pdf') {
@@ -201,50 +188,38 @@ export default function SlideManager() {
       return;
     }
     setUploadedFile(file);
-    setExtractedSlides([]); // Clear previous slides
+    setExtractedSlides([]);
   };
 
-  // Process PDF file using pdfjs-dist
-  React.useEffect(() => {
+  useEffect(() => {
     if (!uploadedFile) return;
-
     const processFile = async () => {
       setIsLoading(true);
       appendLog('Parsing PDF file...');
-
       try {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
-
         const arrayBuffer = await uploadedFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
         if (pdf.numPages === 0) {
           appendLog('PDF has no pages');
           return;
         }
-
         const slides = [];
         const targetWidth = 1494;
-
         for (let i = 1; i <= pdf.numPages; i++) {
-          // appendLog(`- Processing page ${i} of ${pdf.numPages}...`);
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 1 });
           const scale = Math.min(targetWidth / viewport.width, 1.6);
           const scaledViewport = page.getViewport({ scale });
-
           const canvas = document.createElement('canvas');
           canvas.width = scaledViewport.width;
           canvas.height = scaledViewport.height;
           const ctx = canvas.getContext('2d');
-
           await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
           const dataUrl = canvas.toDataURL('image/png');
-
           const textContent = await page.getTextContent();
           const pageText = textContent.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
-
           slides.push({
             image: dataUrl,
             alt: `PDF page ${i}`,
@@ -252,10 +227,8 @@ export default function SlideManager() {
             content: pageText
           });
         }
-
         appendLog(`PDF parsed successfully. ${slides.length} slides extracted.`);
         setExtractedSlides(slides);
-
       } catch (error) {
         appendLog(`Error: ${error.message}`);
       } finally {
@@ -263,11 +236,10 @@ export default function SlideManager() {
         setUploadedFile(null);
       }
     };
-
     processFile();
   }, [uploadedFile]);
 
-  // Manual slide management functions
+    // Manual Helpers
   const addManualSlide = () => {
     setManualSlides([...manualSlides, { topic: '', content: '', image: '' }]);
   };
@@ -288,12 +260,10 @@ export default function SlideManager() {
   const handleImageUpload = (index, event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
       appendLog('Please upload a valid image file');
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
       updateManualSlide(index, 'image', e.target.result);
@@ -301,31 +271,127 @@ export default function SlideManager() {
     reader.readAsDataURL(file);
   };
 
+  // Prompt Helpers 
+  const generateFromPrompt = async () => {
+    setIsLoading(true);
+    appendLog("Generating slides from prompt...");
+    try {
+      const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!GEMINI_API_KEY) throw new Error("Missing Gemini API Key");
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+      const prompt = `Role: You are an expert Academic Curriculum Designer and Technical Writer.
+      Task: Create a detailed presentation outline based on the topic: ${Prompt}.
+      Instructions:
+      Tone: Informative, professional, and academic (like a college professor).
+      Depth: Go beyond surface-level facts. Incorporate historical context, technical implications, and real-world applications.
+      Math/Technical: For any equations, use clear text-based math (e.g., "H of z equals..." or "Summation from n equals 0 to infinity").
+      Conversion: Convert all technical hex codes, binary, or variable names into their full spoken-word form (e.g., "0x00" becomes "hex zero zero").
+      Strict Output Format:
+      You must output ONLY a valid JSON array of objects. Do not include any markdown formatting (no \`\`\`json blocks), explanations, or preamble.
+      JSON Schema:
+      Each object in the array must follow this exact structure:
+      {
+        "title": "A concise, bold slide title",
+        "content": "A high-level summary sentence for the slide (max 2 sentences).",
+        "bullets": ["Point 1", "Point 2", "Point 3"],
+        "notes": "Detailed speaker notes explaining the slide's nuance and providing extra context for the lecturer."
+      }
+      Constraint: Create exactly ${slideCount} slides. Ensure the flow is logical: Introduction -> Core Concepts -> Technical Deep Dive -> Applications -> Conclusion.`;
+
+      const result = await model.generateContent(prompt);
+      let text = result.response.text();
+      text = text.replace(/```json|```/g, "").trim();
+      const parsedSlides = JSON.parse(text);
+
+      setSlides(parsedSlides);
+      appendLog(`Successfully generated ${parsedSlides.length} slides.`);
+    } catch (err) {
+      appendLog(`AI Error: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  async function exportHiddenSlidesToBlob(slidesData) {
+    const hiddenContainer = document.createElement('div');
+    hiddenContainer.style.position = 'absolute';
+    hiddenContainer.style.left = '-9999px';
+    hiddenContainer.style.width = '1200px';
+    document.body.appendChild(hiddenContainer);
+
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'px',
+      format: [1200, 675]
+    });
+
+    try {
+      for (let i = 0; i < slidesData.length; i++) {
+        const slide = slidesData[i];
+        hiddenContainer.innerHTML = `
+          <div id="render-target" style="width:1200px; height:675px; background:white; padding:60px; font-family:sans-serif; display:flex; flex-direction:column; box-sizing:border-box;">
+            <h1 style="font-size:64px; font-weight:800; margin:0; line-height:1.1; color:black;">${slide.title}</h1>
+            <div style="width:100px; height:8px; background-color:#0070f3; margin-top:10px; margin-bottom:40px;"></div>
+            <p style="font-size:24px; color:#333; line-height:1.4; margin-bottom:30px;">${slide.content}</p>
+            <ul style="font-size:24px; color:#444; line-height:1.3; padding-left:40px;">
+              ${slide.bullets?.map(b => `<li style="margin-bottom:15px;">${b}</li>`).join('') || ''}
+            </ul>
+          </div>
+        `;
+        const element = hiddenContainer.querySelector('#render-target');
+        const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage([1200, 675], 'landscape');
+        pdf.addImage(imgData, 'JPEG', 0, 0, 1200, 675);
+      }
+      const pdfBlob = pdf.output('blob');
+      const finalFile = new File([pdfBlob], "presentation.pdf", { type: "application/pdf" });
+      document.body.removeChild(hiddenContainer);
+      return finalFile;
+    } catch (err) {
+      if (document.body.contains(hiddenContainer)) document.body.removeChild(hiddenContainer);
+      throw err;
+    }
+  }
+
+  const updateGeneratedSlide = (index, field, value) => {
+    const updated = slides.map((slide, i) => {
+      if (i === index) {
+        if (field === 'bullets') {
+          return { ...slide, bullets: value.split('\n') };
+        }
+        return { ...slide, [field]: value };
+      }
+      return slide;
+    });
+    setSlides(updated);
+  };
+
+  // Blob Upload Helper
   async function uploadToBlob(file) {
     const qs = new URLSearchParams({ filename: file.name });
     const res = await fetch(`/api/vercel/blob-upload?${qs.toString()}`, {
       method: 'POST',
-      body: file, // raw stream
+      body: file,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`Blob upload failed: ${res.status} ${text}`);
     }
-    return res.json(); // { url, pathname, size, contentType }
+    return res.json();
   }
 
-  // Create slide deck 
+  // Main Slide Deck Handler
   const createSlideDeck = async () => {
     setIsLoading(true);
     appendLog('Creating slide deck...');
-
     try {
-      // Validate inputs
       if (!classCode.trim() || !lectureNumber.trim() || !lectureName.trim()) {
         throw new Error('Please enter Class Code, Lecture Number, and Lecture Name');
       }
       const deckTitle = `${classCode.trim()} - ${lectureNumber.trim()} - ${lectureName.trim()}`;
-
       if (!selectedAvatar) throw new Error('Please select an avatar');
 
       let slidesToUpload = [];
@@ -337,9 +403,8 @@ export default function SlideManager() {
         const blobInfo = await uploadToBlob(file);
         setUploadedFileUrl(blobInfo.url);
         BlobURL = blobInfo.url;
-        
         slidesToUpload = extractedSlides.map((slide, index) => ({
-          fileURL: BlobURL, 
+          fileURL: BlobURL,
           alt: `${deckTitle} - Slide ${index + 1}`,
           topic: slide.topic,
           content: slide.content
@@ -347,20 +412,30 @@ export default function SlideManager() {
       } else if (activeTab === 'manual') {
         const validSlides = manualSlides.filter(slide => slide.topic.trim() && slide.content.trim());
         if (validSlides.length === 0) throw new Error('Please add at least one slide with topic and content');
-
         slidesToUpload = validSlides.map((slide, index) => ({
           image: slide.image || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
           alt: `${deckTitle} - Slide ${index + 1}`,
           topic: slide.topic.trim(),
           content: slide.content.trim()
         }));
+      } else if (activeTab === 'prompt') {
+        if (!slides || slides.length === 0) throw new Error('No slides generated. Please click Generate first.');
+        const generatedPdfFile = await exportHiddenSlidesToBlob(slides);
+        appendLog('Uploading slides to blob storage...');
+        const blobInfo = await uploadToBlob(generatedPdfFile);
+        setUploadedFileUrl(blobInfo.url);
+        BlobURL = blobInfo.url;
+        slidesToUpload = slides.map((slide, index) => ({
+          fileURL: BlobURL,
+          alt: `${deckTitle} - Slide ${index + 1}: ${slide.title}`,
+          topic: slide.title,
+          content: `${slide.content} ${slide.bullets?.join(' ') || ''}`
+        }));
       } else {
         throw new Error('No slides to upload');
       }
 
       appendLog('Sending slide deck to server...');
-
-      // Call slides API with small JSON
       const response = await fetch('/api/prisma/slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -368,32 +443,21 @@ export default function SlideManager() {
           slides: slidesToUpload,
           deckTitle: deckTitle,
           avatar: selectedAvatar,
-          fileUrl: BlobURL || '', 
+          fileUrl: BlobURL || '',
         })
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        let errorPayload = "Could not retrieve error details.";
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorPayload = errorData.error || JSON.stringify(errorData);
-        } else {
-          errorPayload = await response.text();
-        }
+        const errorPayload = await response.text();
         throw new Error(`Server responded with status ${response.status}. Details: ${errorPayload}`);
       }
 
       const result = await response.json();
-      // appendLog(`${result.message}`);
-
       appendLog('Slide deck uploaded successfully...');
 
-      // Translations
       const language = 'en';
-      const createdSlides = await fetchSlidesForDeck(result.deckId); // same helper as before
+      const createdSlides = await fetchSlidesForDeck(result.deckId);
       appendLog(`Generating narration for ${createdSlides.length} slides...`);
-
       const narrationsArray = await generateNarrationsClient(createdSlides, language, appendLog);
       
       let items = createdSlides.map((s, idx) => ({
@@ -402,23 +466,20 @@ export default function SlideManager() {
         language,
       }));
 
-      // Translate to other languages
       const targetLanguages = ['es', 'fr', 'zh', 'ar'];
       for (const targetLang of targetLanguages) {
         appendLog(`Translating narrations to ${targetLang}...`);
         const translatedArray = await translateNarrationsClient(narrationsArray, targetLang, appendLog);
-        
         const translatedItems = createdSlides.map((s, idx) => ({
           slideId: s.id,
           text: translatedArray[idx] || 'Translation unavailable',
           language: targetLang
         }));
-        
         items = [...items, ...translatedItems];
       }
 
       appendLog(`Saving ${items.length} narrations to database...`);
-      const saveRes = await persistNarrations(items, result.deckId, true); // overwrite = true to set as active
+      const saveRes = await persistNarrations(items, result.deckId, true);
       const okCount = (saveRes?.results || []).filter(r => r.status === 'ok').length;
       appendLog(`Narrations saved (${okCount}/${items.length})`);
 
@@ -428,7 +489,6 @@ export default function SlideManager() {
         appendLog(`Presentation URL: ${url}`);
       }
       
-      // Reinitialize states on success
       setClassCode('');
       setLectureNumber('');
       setLectureName('');
@@ -436,6 +496,7 @@ export default function SlideManager() {
       setExtractedSlides([]);
       setManualSlides([{ topic: '', content: '', image: '' }]);
       setUploadedFileUrl('');
+      setSlides([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
     } catch (error) {
@@ -446,483 +507,219 @@ export default function SlideManager() {
     }
   };
 
+  // Logout Handler
   const handleLogout = async () => {
     await fetch('/api/auth/logout');
     router.push('/login');
   };
 
-  // Render
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '900px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
       <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>Deck Upload</h1>
       <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
+      
+      {/* Navigation Buttons */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
-        <a href="/admin" style={{
-          padding: '8px 16px',
-          backgroundColor: '#e27d2aff',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '4px',
-        }}>
-          Admin
-        </a>
-        <a href="/" style={{
-          padding: '8px 16px',
-          backgroundColor: '#0070f3',
-          color: 'white',
-          textDecoration: 'none',
-          borderRadius: '4px',
-        }}>
-          Home
-        </a>
-        <button onClick={handleLogout} style={{
-          padding: '8px 16px',
-          backgroundColor: '#dc3545',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          fontSize: 'inherit'
-        }}>
-          Logout
-        </button>
+        <a href="/admin" style={{ padding: '8px 16px', backgroundColor: '#e27d2aff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>Admin</a>
+        <a href="/" style={{ padding: '8px 16px', backgroundColor: '#0070f3', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>Home</a>
+        <button onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}>Logout</button>
       </div>
-      {/* Deck Settings */}
-      <div style={{
-        marginBottom: '2rem',
-        padding: '1.5rem',
-        borderRadius: '8px',
-        backgroundColor: '#f6f7fa',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-      }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Deck Parameters</h2>
 
-        {/* Deck Details */}
+      {/* Deck Parameters */}
+      <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '8px', backgroundColor: '#f6f7fa', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Deck Parameters</h2>
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                Class Code:
-              </label>
-              <input
-                type="text"
-                value={classCode}
-                onChange={(e) => setClassCode(e.target.value)}
-                placeholder="e.g. CS101"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '6px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Class Code:</label>
+              <input type="text" value={classCode} onChange={(e) => setClassCode(e.target.value)} placeholder="e.g. CS101" style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '16px', boxSizing: 'border-box' }} />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                Lecture Number:
-              </label>
-              <input
-                type="text"
-                value={lectureNumber}
-                onChange={(e) => setLectureNumber(e.target.value)}
-                placeholder="e.g. 01"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '6px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Lecture Number:</label>
+              <input type="text" value={lectureNumber} onChange={(e) => setLectureNumber(e.target.value)} placeholder="e.g. 01" style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '16px', boxSizing: 'border-box' }} />
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-              Lecture Name:
-            </label>
-            <input
-              type="text"
-              value={lectureName}
-              onChange={(e) => setLectureName(e.target.value)}
-              placeholder="e.g. Intro to Algorithms"
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '1px solid #ccc',
-                borderRadius: '6px',
-                fontSize: '16px',
-                boxSizing: 'border-box'
-              }}
-            />
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Lecture Name:</label>
+            <input type="text" value={lectureName} onChange={(e) => setLectureName(e.target.value)} placeholder="e.g. Intro to Algorithms" style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '16px', boxSizing: 'border-box' }} />
           </div>
         </div>
-
-        {/* Avatar Selection */}
         <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-            Choose Avatar:
-          </label>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Choose Avatar:</label>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             {availableAvatars.map((avatar) => (
-              <div
-                key={avatar.id}
-                onClick={() => setSelectedAvatar(avatar.id)}
-                style={{
-                  padding: '0.5rem',
-                  border: selectedAvatar === avatar.id ? '3px solid #007bff' : '2px solid #ddd',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  backgroundColor: selectedAvatar === avatar.id ? '#e3f2fd' : 'white'
-                }}
-              >
-                <img
-                  src={avatar.image}
-                  alt={avatar.name}
-                  style={{ width: '48px', height: '48px', marginBottom: '0.5rem' }}
-                />
+              <div key={avatar.id} onClick={() => setSelectedAvatar(avatar.id)} style={{ padding: '0.5rem', border: selectedAvatar === avatar.id ? '3px solid #007bff' : '2px solid #ddd', borderRadius: '8px', cursor: 'pointer', textAlign: 'center', backgroundColor: selectedAvatar === avatar.id ? '#e3f2fd' : 'white' }}>
+                <img src={avatar.image} alt={avatar.name} style={{ width: '48px', height: '48px', marginBottom: '0.5rem' }} />
                 <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{avatar.name}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
-
-      {/* Tab Navigation */}
+      
+      {/* Tabs */}
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0' }}>
-          <button
-            onClick={() => setActiveTab('pdf')}
-            style={{
-              padding: '12px 24px',
-              border: '1px solid #ddd',
-              borderBottom: activeTab === 'pdf' ? '3px solid #28a745' : '1px solid #ddd',
-              backgroundColor: activeTab === 'pdf' ? '#f8fff9' : 'white',
-              cursor: 'pointer',
-              borderTopLeftRadius: '0',
-              borderTopRightRadius: '6px'
-            }}
-          >
-            PDF Upload
-          </button>
-          <button
-            onClick={() => setActiveTab('manual')}
-            style={{
-              padding: '12px 24px',
-              border: '1px solid #ddd',
-              borderBottom: activeTab === 'manual' ? '3px solid #28a745' : '1px solid #ddd',
-              backgroundColor: activeTab === 'manual' ? '#f8fff9' : 'white',
-              cursor: 'pointer',
-              borderTopLeftRadius: '6px',
-              borderTopRightRadius: '0'
-            }}
-          >
-            Manual Entry
-          </button>
+          <button onClick={() => setActiveTab('pdf')} style={{ padding: '12px 24px', border: '1px solid #ddd', borderBottom: activeTab === 'pdf' ? '3px solid #28a745' : '1px solid #ddd', backgroundColor: activeTab === 'pdf' ? '#f8fff9' : 'white', cursor: 'pointer', borderTopRightRadius: '6px' }}>PDF Upload</button>
+          <button onClick={() => setActiveTab('manual')} style={{ padding: '12px 24px', border: '1px solid #ddd', borderBottom: activeTab === 'manual' ? '3px solid #28a745' : '1px solid #ddd', backgroundColor: activeTab === 'manual' ? '#f8fff9' : 'white', cursor: 'pointer', borderTopLeftRadius: '6px' }}>Manual Entry</button>
+          <button onClick={() => setActiveTab('prompt')} style={{ padding: '12px 24px', border: '1px solid #ddd', borderBottom: activeTab === 'prompt' ? '3px solid #28a745' : '1px solid #ddd', backgroundColor: activeTab === 'prompt' ? '#f8fff9' : 'white', cursor: 'pointer', borderTopRightRadius: '6px' }}>Prompt</button>
         </div>
       </div>
-
-      {/* Content based on active tab */}
+          
+      {/* PDF Tab */}
       {activeTab === 'pdf' && (
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          backgroundColor: '#f6f7fa',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        }}>
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '8px', backgroundColor: '#f6f7fa', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Upload PDF</h2>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={handlePDFUpload}
-            disabled={isLoading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              border: '1px solid #ccc',
-              borderRadius: '6px',
-              backgroundColor: 'white',
-              boxSizing: 'border-box'
-            }}
-          />
-
+          <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={handlePDFUpload} disabled={isLoading} style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: 'white', boxSizing: 'border-box' }} />
           {extractedSlides.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
-              <p style={{ fontWeight: 'bold', color: '#28a745' }}>
-                ✅ {extractedSlides.length} slides extracted from PDF
-              </p>
+              <p style={{ fontWeight: 'bold', color: '#28a745' }}>✅ {extractedSlides.length} slides extracted</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                 {extractedSlides.slice(0, 6).map((slide, index) => (
-                  <div key={index} style={{
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    overflow: 'hidden',
-                    backgroundColor: 'white'
-                  }}>
-                    <img
-                      src={slide.image}
-                      alt={slide.alt}
-                      style={{ width: '100%', height: '120px', objectFit: 'cover' }}
-                    />
+                  <div key={index} style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden', backgroundColor: 'white' }}>
+                    <img src={slide.image} alt={slide.alt} style={{ width: '100%', height: '120px', objectFit: 'cover' }} />
                     <div style={{ padding: '0.5rem' }}>
                       <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{slide.topic}</div>
-                      <div style={{ fontSize: '10px', color: '#666', marginTop: '0.25rem' }}>
-                        {slide.content.substring(0, 50)}...
-                      </div>
+                      <div style={{ fontSize: '10px', color: '#666', marginTop: '0.25rem' }}>{slide.content.substring(0, 50)}...</div>
                     </div>
                   </div>
                 ))}
               </div>
-              {extractedSlides.length > 6 && (
-                <p style={{ textAlign: 'center', color: '#666', marginTop: '0.5rem' }}>
-                  ...and {extractedSlides.length - 6} more slides
-                </p>
-              )}
             </div>
           )}
         </div>
       )}
 
+      {/* Manual Tab */}
       {activeTab === 'manual' && (
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          backgroundColor: '#f6f7fa',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        }}>
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '8px', backgroundColor: '#f6f7fa', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Manual Slide Entry</h2>
-
           {manualSlides.map((slide, index) => (
-            <div key={index} style={{
-              marginBottom: '1.5rem',
-              padding: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '6px',
-              backgroundColor: 'white'
-            }}>
+            <div key={index} style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '6px', backgroundColor: 'white' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h3>Slide {index + 1}</h3>
-                {manualSlides.length > 1 && (
-                  <button
-                    onClick={() => removeManualSlide(index)}
-                    style={{
-                      padding: '4px 8px',
-                      backgroundColor: '#dc3545',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Remove
-                  </button>
-                )}
+                {manualSlides.length > 1 && <button onClick={() => removeManualSlide(index)} style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>Remove</button>}
               </div>
-
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Topic:
-                </label>
-                <input
-                  type="text"
-                  value={slide.topic}
-                  onChange={(e) => updateManualSlide(index, 'topic', e.target.value)}
-                  placeholder="Enter slide topic..."
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Topic:</label>
+                <input type="text" value={slide.topic} onChange={(e) => updateManualSlide(index, 'topic', e.target.value)} placeholder="Enter slide topic..." style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }} />
               </div>
-
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Content:
-                </label>
-                <textarea
-                  value={slide.content}
-                  onChange={(e) => updateManualSlide(index, 'content', e.target.value)}
-                  placeholder="Enter slide content..."
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Content:</label>
+                <textarea value={slide.content} onChange={(e) => updateManualSlide(index, 'content', e.target.value)} placeholder="Enter slide content..." rows={4} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical', boxSizing: 'border-box' }} />
               </div>
-
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-                  Image (optional):
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload(index, e)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                {slide.image && (
-                  <div style={{ marginTop: '0.5rem' }}>
-                    <img
-                      src={slide.image}
-                      alt="Preview"
-                      style={{
-                        maxWidth: '200px',
-                        maxHeight: '150px',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px'
-                      }}
-                    />
-                  </div>
-                )}
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Image (optional):</label>
+                <input type="file" accept="image/*" onChange={(e) => handleImageUpload(index, e)} style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }} />
+                {slide.image && <div style={{ marginTop: '0.5rem' }}><img src={slide.image} alt="Preview" style={{ maxWidth: '200px', maxHeight: '150px', border: '1px solid #ddd', borderRadius: '4px' }} /></div>}
               </div>
             </div>
           ))}
-
-          <button
-            onClick={addManualSlide}
-            disabled={isLoading}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              marginRight: '1rem'
-            }}
-          >
-            + Add Slide
-          </button>
+          <button onClick={addManualSlide} disabled={isLoading} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px', cursor: isLoading ? 'not-allowed' : 'pointer', marginRight: '1rem' }}>+ Add Slide</button>
         </div>
       )}
 
-      {/* Create Button */}
+      {/* Prompt Tab */}
+      {activeTab === 'prompt' && (
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '8px', backgroundColor: '#f6f7fa', boxSizing: 'border-box', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '1rem' }}>Generate Slides with Prompt</h2>
+          
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>Prompt: </label>
+            <textarea value={Prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. A presentation about different wines around the world..." rows={4} style={{ width: '100%', padding: '12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '16px', resize: 'vertical', boxSizing: 'border-box' }} />
+          </div>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+              # of Slides:
+            </label>
+            <input 
+              type="number" 
+              min="1" 
+              max="20" 
+              value={slideCount} 
+              onChange={(e) => setSlideCount(parseInt(e.target.value) || 1)}
+              style={{
+                width: '100px',
+                padding: '8px',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                fontSize: '16px'
+              }}
+            />
+          </div>
+          
+          <button onClick={generateFromPrompt} disabled={isLoading || !Prompt.trim()} style={{ width: '100%', padding: '12px', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: (isLoading || !Prompt.trim()) ? 'not-allowed' : 'pointer', transition: 'background 0.2s' }}>
+            {isLoading ? 'Generating Outline...' : 'Generate Outline'}
+          </button>
+          {slides.length > 0 && (
+            <div style={{ marginTop: '2rem', borderTop: '2px dashed #ccc', paddingTop: '1.5rem' }}>
+              <h3 style={{ marginBottom: '1rem' }}>Edit Generated Slides</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                {slides.map((s, i) => (
+                  <div key={i} style={{ padding: '1.5rem', background: 'white', borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>Slide {i + 1} Title</label>
+                      <input 
+                        type="text" 
+                        value={s.title} 
+                        onChange={(e) => updateGeneratedSlide(i, 'title', e.target.value)}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #eee', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', color: '#0070f3' }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>Summary Content</label>
+                      <textarea 
+                        value={s.content} 
+                        onChange={(e) => updateGeneratedSlide(i, 'content', e.target.value)}
+                        rows={2}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #eee', borderRadius: '4px', fontSize: '14px', fontFamily: 'inherit' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#666' }}>Bullet Points (One per line)</label>
+                      <textarea 
+                        value={s.bullets?.join('\n')} 
+                        onChange={(e) => updateGeneratedSlide(i, 'bullets', e.target.value)}
+                        rows={4}
+                        style={{ width: '100%', padding: '8px', border: '1px solid #eee', borderRadius: '4px', fontSize: '14px', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+        </div>
+      )}
+
+      {/* Create Slide Deck Button */}
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <button
-          onClick={createSlideDeck}
-          disabled={isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName}
-          style={{
-            padding: '15px 30px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '18px',
-            cursor: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 'not-allowed' : 'pointer',
-            opacity: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 0.6 : 1
-          }}
-        >
+        <button onClick={createSlideDeck} disabled={isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName} style={{ padding: '15px 30px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', cursor: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 'not-allowed' : 'pointer', opacity: (isLoading || !selectedAvatar || !classCode || !lectureNumber || !lectureName) ? 0.6 : 1 }}>
           {isLoading ? 'Creating...' : 'Create Slide Deck'}
         </button>
       </div>
 
-      {/* SUCCESS MESSAGE WITH PRESENTATION URL */}
+      {/* Presentation URL Display */}
       {presentationUrl && (
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          backgroundColor: '#d4edda',
-          textAlign: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        }}>
+        <div style={{ marginBottom: '2rem', padding: '1.5rem', borderRadius: '8px', backgroundColor: '#d4edda', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <h2>🎉 Deck Created Successfully!</h2>
           <p style={{ marginBottom: '1rem' }}>Your presentation is ready. Use this link:</p>
-          <div style={{
-            padding: '1rem',
-            backgroundColor: 'white',
-            borderRadius: '5px',
-            border: '1px solid #ddd',
-            marginBottom: '1rem'
-          }}>
-            <a
-              href={presentationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: '#0070f3',
-                textDecoration: 'none',
-                fontWeight: 'bold',
-                fontSize: '16px'
-              }}
-            >
-              {presentationUrl}
-            </a>
+          <div style={{ padding: '1rem', backgroundColor: 'white', borderRadius: '5px', border: '1px solid #ddd', marginBottom: '1rem' }}>
+            <a href={presentationUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 'bold', fontSize: '16px' }}>{presentationUrl}</a>
           </div>
-          <a
-            href={presentationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              padding: '6px 12px',
-              backgroundColor: '#17a2b8',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '4px',
-              fontSize: '14px'
-            }}
-          >
-            View
-          </a>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(presentationUrl);
-              appendLog('URL copied to clipboard');
-            }}
-            style={{
-              padding: '6px 12px',
-              backgroundColor: '#6f42c1',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '14px',
-              position: 'relative'
-            }}
-          >
-            📋 Copy Link
-          </button>
-
+          <a href={presentationUrl} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', backgroundColor: '#17a2b8', color: 'white', textDecoration: 'none', borderRadius: '4px', fontSize: '14px' }}>View</a>
+          <button onClick={() => { navigator.clipboard.writeText(presentationUrl); appendLog('URL copied to clipboard'); }} style={{ marginLeft: '10px', padding: '6px 12px', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px' }}>📋 Copy Link</button>
         </div>
       )}
-
-      {/* Status Display */}
-      <div style={{
-        padding: '1rem',
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-        backgroundColor: '#e9edf1ff',
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        maxHeight: '300px',
-        overflowY: 'auto',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-      }}>
-        <h3>Status:</h3>
-        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-          {status || 'Ready to create slides...'}
-        </div>
+      
+      {/* Log Display */}
+      <div style={{ padding: '1rem', border: '1px solid #ccc', borderRadius: '5px', backgroundColor: '#e9edf1ff', fontFamily: 'monospace', fontSize: '14px', maxHeight: '300px', overflowY: 'auto', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+        <h3>Status Log:</h3>
+        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{status || 'Ready to create slides...'}</div>
       </div>
     </div>
   );

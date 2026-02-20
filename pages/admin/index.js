@@ -344,6 +344,7 @@ export default function AdminPage() {
       [deckId]: { bySlide, count: narrations.length, currentLang: targetLang }
     }));
   }
+
   function setSlideText(deckId, slideId, text) {
     setDeckNarrations(prev => ({
       ...prev,
@@ -416,7 +417,6 @@ export default function AdminPage() {
     router.push('/login');
   };
 
-
   if (loading) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -487,6 +487,7 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Navigation Buttons */}
       <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>🔧 Admin - Deck Management</h1>
       <div style={{ width: '60px', height: '3px', backgroundColor: '#0070f3', margin: '0 auto 1rem auto' }}></div>
       <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginBottom: '2rem' }}>
@@ -716,6 +717,7 @@ export default function AdminPage() {
 
               {/* Expand/Collapse for Questions/Narrations */}
               <div style={{ marginTop: '1rem' }}>
+                {/* Question Button */}
                 <button
                   onClick={() => {
                     if (expandedDeck === deck.id) {
@@ -738,7 +740,7 @@ export default function AdminPage() {
                   {expandedDeck === deck.id ? 'Hide Questions' : 'Show Questions'}
                 </button>
 
-
+                {/* Narration Button */}
                 <button
                   onClick={() => {
                     if (expandedNarrDeck === deck.id) {
@@ -761,7 +763,8 @@ export default function AdminPage() {
                 >
                   {expandedNarrDeck === deck.id ? 'Hide Narrations' : 'Show Narrations'}
                 </button>
-
+                
+                {/* Questions */}
                 {expandedDeck === deck.id && deckQuestions[deck.id] && (
                   <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
                     <h4>Questions ({deckQuestions[deck.id].length})</h4>
@@ -814,7 +817,8 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
-
+                
+                {/* Narrations */}
                 {expandedNarrDeck === deck.id && (
                   <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
                     <h4>Narrations ({deckNarrations[deck.id]?.count ?? 0})</h4>
