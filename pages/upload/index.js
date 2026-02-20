@@ -183,12 +183,15 @@ export default function SlideManager() {
     { id: 'avatar4', name: '4', image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzIiIGZpbGw9IiMyZGE0NGUiLz4KPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTAiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xNCA1MmMwLTEwIDgtMTggMTgtMThzMTggOCAxOCAxOCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+' }
   ];
 
-  // const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
-  const appendLog = (msg) => {
-    const timestamp = new Date().toLocaleTimeString();
-    const newLine = `[${timestamp}] ${msg}\n`;
-    setStatus(prevStatus => prevStatus + newLine);
-  };
+  // AppenLog Single
+  const appendLog = (msg) => setStatus(`[${new Date().toLocaleTimeString()}] ${msg}`);
+  
+  // // AppendLog Continuous
+  // const appendLog = (msg) => {
+  //   const timestamp = new Date().toLocaleTimeString();
+  //   const newLine = `[${timestamp}] ${msg}\n`;
+  //   setStatus(prevStatus => prevStatus + newLine);
+  // };
 
   // Handle PDF upload and parsing
   const handlePDFUpload = (event) => {
@@ -225,7 +228,7 @@ export default function SlideManager() {
         const targetWidth = 1494;
 
         for (let i = 1; i <= pdf.numPages; i++) {
-          appendLog(`- Processing page ${i} of ${pdf.numPages}...`);
+          // appendLog(`- Processing page ${i} of ${pdf.numPages}...`);
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 1 });
           const scale = Math.min(targetWidth / viewport.width, 1.6);
@@ -328,14 +331,12 @@ export default function SlideManager() {
       let slidesToUpload = [];
       let BlobURL = '';
 
+      appendLog('Finalizing slide deck for upload...');
       if (activeTab === 'pdf' && extractedSlides.length > 0) {
         const file = fileInputRef.current.files[0];
-        // appendLog(`Uploading original PDF "${file.name}" to Blob...`);
         const blobInfo = await uploadToBlob(file);
         setUploadedFileUrl(blobInfo.url);
-        // appendLog(`Blob stored: ${blobInfo.url}`);
         BlobURL = blobInfo.url;
-        // print(`Blob upload result: ${JSON.stringify(blobInfo)}`);
         
         slidesToUpload = extractedSlides.map((slide, index) => ({
           fileURL: BlobURL, 
@@ -357,7 +358,7 @@ export default function SlideManager() {
         throw new Error('No slides to upload');
       }
 
-      appendLog('Sending deck data to server...');
+      appendLog('Sending slide deck to server...');
 
       // Call slides API with small JSON
       const response = await fetch('/api/prisma/slides', {
@@ -384,14 +385,12 @@ export default function SlideManager() {
       }
 
       const result = await response.json();
-      appendLog(`${result.message}`);
+      // appendLog(`${result.message}`);
 
-      // Generate presentation URL
-      
+      appendLog('Slide deck uploaded successfully...');
 
+      // Translations
       const language = 'en';
-
-      appendLog('Fetching created slides...');
       const createdSlides = await fetchSlidesForDeck(result.deckId); // same helper as before
       appendLog(`Generating narration for ${createdSlides.length} slides...`);
 
@@ -418,7 +417,6 @@ export default function SlideManager() {
         items = [...items, ...translatedItems];
       }
 
-      appendLog('Saving narrations to database...');
       appendLog(`Saving ${items.length} narrations to database...`);
       const saveRes = await persistNarrations(items, result.deckId, true); // overwrite = true to set as active
       const okCount = (saveRes?.results || []).filter(r => r.status === 'ok').length;
@@ -427,10 +425,10 @@ export default function SlideManager() {
       if (result.deckId) {
         const url = `${window.location.origin}/student/?deck=${result.deckId}`;
         setPresentationUrl(url);
-        appendLog(`🔗 Presentation URL: ${url}`);
+        appendLog(`Presentation URL: ${url}`);
       }
       
-      // Reset form on success
+      // Reinitialize states on success
       setClassCode('');
       setLectureNumber('');
       setLectureName('');
@@ -453,6 +451,7 @@ export default function SlideManager() {
     router.push('/login');
   };
 
+  // Render
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '900px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
       <h1 style={{ textAlign: 'center', color: '#2c3e50', fontSize: '3rem', fontWeight: '300', position: 'relative', marginBottom: '1.3rem' }}>Deck Upload</h1>
@@ -890,7 +889,7 @@ export default function SlideManager() {
           <button
             onClick={() => {
               navigator.clipboard.writeText(presentationUrl);
-              appendLog('📋 URL copied to clipboard');
+              appendLog('URL copied to clipboard');
             }}
             style={{
               padding: '6px 12px',

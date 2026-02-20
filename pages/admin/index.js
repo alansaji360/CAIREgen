@@ -127,10 +127,10 @@ export default function AdminPage() {
       const data = await response.json();
       setDecks(data);
 
-      // appendLog(`Loaded ${sortedData.length} decks`);
+      appendLog(`Loaded ${data.length} decks`);
     } catch (error) {
       console.error('Error fetching decks:', error);
-      // appendLog(`Error loading decks: ${error.message}`);
+      appendLog(`Error loading decks: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -141,8 +141,30 @@ export default function AdminPage() {
       return;
     }
 
-    appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
+    appendLog(`Deleting deck: ${deckTitle}...`);
 
+    // delete PDF from Blob 
+    try {
+      const response = await fetch(`/api/admin/vercel/${deckId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 405) {
+          throw new Error('Vercel API does not support DELETE method—check server configuration');
+        }
+        throw new Error(errorData.error || 'Failed to delete Blob');
+      }
+
+      appendLog(`Successfully deleted Blob for "${deckTitle}"`);
+
+    } catch (error) {
+      console.error('Error deleting Blob:', error);
+      appendLog(`Error deleting Blob: ${error.message}`);
+    }
+
+    // delete from DB
     try {
       const response = await fetch(`/api/admin/prisma/decks/${deckId}`, {
         method: 'DELETE'
@@ -157,7 +179,7 @@ export default function AdminPage() {
       }
 
       setDecks(decks.filter(deck => deck.id !== deckId));
-      appendLog(`Successfully deleted "${deckTitle}"`);
+      appendLog(`Successfully deleted "${deckTitle}" from DB`);
 
     } catch (error) {
       console.error('Error deleting deck:', error);
@@ -173,6 +195,32 @@ export default function AdminPage() {
     }
     appendLog(`Deleting ${selectedIds.length} decks...`);
 
+    // delete PDFs from Blob
+    try {
+      const response = await fetch('/api/admin/vercel/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 405) {
+          throw new Error('Vercel API does not support DELETE method - check server configuration');
+        }
+        throw new Error(errorData.error || 'Failed to delete decks');
+      }
+
+      setDecks(decks.filter(deck => !selectedIds.includes(deck.id)));
+      setSelectedDecks([]);
+      appendLog(`Successfully deleted ${selectedIds.length} Blobs`);
+
+    } catch (error) {
+      console.error('Error deleting from blob:', error);
+      appendLog(`Error deleting from blob: ${error.message}`);
+    }
+
+    // delete from DB
     try {
       const response = await fetch('/api/admin/prisma/decks/bulk-delete', {
         method: 'DELETE',
@@ -244,7 +292,7 @@ export default function AdminPage() {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
 
     const questionTexts = questions.map(q => q.text).join('\n');
     const prompt = `Summarize these student questions from a lecture: "${questionTexts}". Identify the most common topics, areas with the least understanding (e.g., frequent confusion), and key insights for the professor. Keep it concise (3-5 sentences). Output as plain text.`;
@@ -264,7 +312,7 @@ export default function AdminPage() {
     navigator.clipboard.writeText(link)
       .then(() => {
         setCopyFeedback(prev => ({ ...prev, [deckId]: true }));
-        appendLog(`📋 Copied link for deck ${deckId}`);
+        appendLog(`Copied link for deck ${deckId}`);
         setTimeout(() => setCopyFeedback(prev => ({ ...prev, [deckId]: false })), 2000); // Hide after 2s
       })
       .catch((err) => {
@@ -377,7 +425,7 @@ export default function AdminPage() {
     );
   }
 
-
+  // Render
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
       {/* Image Modal */}
@@ -629,7 +677,7 @@ export default function AdminPage() {
                     position: 'relative'
                   }}
                 >
-                  📋 Copy Link
+                  Copy Link
                   {copyFeedback[deck.id] && (
                     <span style={{
                       position: 'absolute',

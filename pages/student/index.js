@@ -788,13 +788,13 @@ const Controls = ({
         onChange={(e) => setQuestionText(e.target.value)}
         placeholder={t.askPlaceholder}
         style={{ ...styles.input, width: '250px' }}
-        disabled={!isPresenting}
+        // disabled={!isPresenting}
         title={t.askTitle}
       />
       <button
         style={{ ...styles.button, backgroundColor: '#e01f1fff' }}
         onClick={onAskQuestion}
-        disabled={!isPresenting || !questionText.trim()}
+        // disabled={!isPresenting || !questionText.trim()}
         title={t.submitQuestion}
         onMouseEnter={(e) => handleMouseEnter(e, '#e01f1fff')}
         onMouseLeave={(e) => handleMouseLeave(e, '#e01f1fff')}
@@ -1028,7 +1028,6 @@ export default function Home() {
     const deckId = router.query.deck;
     if (!deckId || !slideData?.length) return;
     setIsGenerating(true);
-    // appendLog('Loading Narrations...');
     try {
       const params = new URLSearchParams({
         deckId,
@@ -1037,7 +1036,6 @@ export default function Home() {
       });
 
       const res = await fetch(`/api/prisma/narration?${params.toString()}`);
-      // appendLog(res.status);
       
       if (!res.ok) throw new Error(`Failed to fetch narrations (${res.status})`);
       const { narrations } = await res.json();
@@ -1051,10 +1049,6 @@ export default function Home() {
       setNarrationScript(ordered);
       setSlideSummaries(ordered.map(t => (t || '').slice(0, 100) + '...'));
       setHasGenerated(true);
-      // appendLog('Narrations loaded.');
-
-      // appendLog(ordered);
-
     } catch (e) {
       appendLog(`Narration load error: ${e.message}`);
       const fallback = slideData.map(() => 'Narration not available.');
@@ -1114,7 +1108,7 @@ export default function Home() {
       } else {
         // Only log if we were actually presenting and just finished
         if (isPresenting) {
-          appendLog('Presentation completed.');
+          // appendLog('Presentation completed.');
           setIsPresenting(false);
         }
         return prev;
@@ -1185,7 +1179,7 @@ export default function Home() {
     setIsConnecting(false);
     setIsPresenting(false);
     setIsPaused(false);
-    appendLog('🛑 Avatar stopped.');
+    appendLog('Avatar stopped.');
   }, [appendLog]);
 
   // EFFECT: Auto-stop stream on unmount
@@ -1198,7 +1192,7 @@ export default function Home() {
       return;
     }
     if (!isReady) { // Block stream start until script is ready
-      appendLog("Script not fully generated. Please wait before starting.");
+      appendLog("Avatar not ready.");
       return;
     }
 
@@ -1240,14 +1234,14 @@ export default function Home() {
       // });
 
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        // Use functional updates or refs to ensure we have the absolute latest index
+        // functional updates or refs to ensure absolute latest index
         setCurrentSlide((prevIndex) => {
           if (isPresenting && prevIndex < slideData.length - 1) {
-            // Only move forward if we aren't already at the end
+            // Only move forward if not at the end
             setTimeout(() => goToNextSlide(), 1500);
             return prevIndex; 
           } else if (prevIndex >= slideData.length - 1) {
-            // We are actually at the end
+            // at the end
             return prevIndex;
           }
           return prevIndex;
@@ -1283,7 +1277,7 @@ export default function Home() {
 
   const handleAvatarToggle = useCallback(() => {
     if (!isReady) { // Block if not ready
-      appendLog('Script not fully generated. Please wait.');
+      appendLog('Avatar not ready.');
       return;
     }
     if (isAvatarReady) {
@@ -1325,10 +1319,10 @@ export default function Home() {
   }, [isPresenting]);
 
   const askQuestion = useCallback(async () => {
-    if (!isAvatarReady || !isPresenting || !questionText.trim()) {
-      appendLog('Cannot ask question: Avatar not ready or not presenting.');
-      return;
-    }
+    // if (!isAvatarReady || !isPresenting || !questionText.trim()) {
+    //   appendLog('Cannot ask question: Avatar not ready or not presenting.');
+    //   return;
+    // }
     if (avatarRef.current) {
       avatarRef.current.interrupt();
       setIsPaused(true);
@@ -1363,7 +1357,7 @@ export default function Home() {
       }
     };
     await storeQuestion();
-
+    // return;
     try {
       const response = await fetch('/api/gemini/answer', {
         method: 'POST',
@@ -1392,7 +1386,6 @@ export default function Home() {
     }
   }, [isAvatarReady, isPresenting, questionText, currentSlide, slideData, selectedLanguage, speak, resumeNarration, appendLog, router.query.deck]);
 
-    // appendLog('Invalid deck ID format');
    useEffect(() => {
     const loadDeckData = async () => {
       const { deck: deckId } = router.query;
@@ -1406,7 +1399,6 @@ export default function Home() {
 
         try {
           setLoading(true);
-          // appendLog('Fetching deck metadata...');
           const response = await fetch(`/api/prisma/${deckId}`);
 
           if (!response.ok) {
@@ -1419,20 +1411,16 @@ export default function Home() {
           setDeckData(deck);
 
           let finalSlides = [];
-          // appendLog(deck.fileUrl)
-          // LOGIC: If DB has no slides but has a fileUrl, parse the PDF on the client
+          // check filURL
           if (deck.fileUrl) {
-            // appendLog('📄 Parsing PDF from Blob storage...');
-            
             try {
               const pdfjsLib = await import('pdfjs-dist');
               pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
               const pdf = await pdfjsLib.getDocument(deck.fileUrl).promise;
-              const targetWidth = 1494; // Match your SlideshowBox width
+              const targetWidth = 1494; // SlideshowBox width
 
               for (let i = 1; i <= pdf.numPages; i++) {
-                // appendLog(`- Rendering slide ${i}/${pdf.numPages}...`);
                 const page = await pdf.getPage(i);
                 const viewport = page.getViewport({ scale: 1 });
                 const scale = Math.min(targetWidth / viewport.width, 2.0);
@@ -1449,7 +1437,7 @@ export default function Home() {
                   image: canvas.toDataURL('image/png'),
                   alt: `${deck.title} - Slide ${i}`,
                   topic: `Page ${i}`,
-                  content: "" // rely on DB for text if available, or just use the image
+                  content: "" 
                 });
               }
               appendLog('Slides Ready');
@@ -1458,7 +1446,6 @@ export default function Home() {
               appendLog(`❌ Error rendering PDF: ${pdfError.message}`);
             }
           } else {
-            // Otherwise, use slides from DB 
             finalSlides = deck.slides.map((slide, index) => ({
               image: slide.image,
               alt: slide.alt || `Slide ${index + 1}`,
@@ -1528,7 +1515,7 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [goToNextSlide, goToPrevSlide, handlePlayPause]);
 
-  // ===== SINGLE RETURN WITH CONDITIONAL RENDERING =====
+  // Render
   return (
     <div style={{ cursor: isConnecting ? 'wait' : 'auto' }}>
       {loading && <LoadingScreen />}
@@ -1554,7 +1541,8 @@ export default function Home() {
           </h1>
 
           {deckData && <DeckInfo deckData={deckData} />}
-
+          
+          {/* Slide Component */}
           <div style={styles.container}>
             <div ref={fullscreenRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
               <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} isFullscreen={isFullscreen} selectedLanguage={selectedLanguage} />

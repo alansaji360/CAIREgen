@@ -1,66 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
 }
 
 model Deck {
   id              String     @id @default(cuid())
   title           String
   avatar          String
-  fileUrl         String 
-  presentationUrl String?
+  fileUrl         String
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  presentationUrl String?
+  questions       Question[]
   slides          Slide[]
-  questions       Question[] // New relation to questions
 }
 
 model Slide {
-  id        Int        @id @default(autoincrement())
-  image     String     @db.Text
-  alt       String
-  topic     String
-  content   String     @db.Text
-  deckId    String // Foreign key to Deck
-  deck      Deck       @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  Question  Question[]
-  narrations   Narration[]
+  id         Int         @id @default(autoincrement())
+  image      String
+  alt        String
+  topic      String
+  content    String
+  deckId     String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  narrations Narration[]
+  Question   Question[]
+  deck       Deck        @relation(fields: [deckId], references: [id], onDelete: Cascade)
 }
 
 model Question {
   id        String   @id @default(cuid())
-  text      String   @db.Text
+  text      String
   deckId    String
-  slideId   Int? // Optional: Link to specific slide if you want per-slide questions
+  slideId   Int?
   createdAt DateTime @default(now())
   deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  slide     Slide?   @relation(fields: [slideId], references: [id], onDelete: SetNull) // Optional relation
+  slide     Slide?   @relation(fields: [slideId], references: [id])
 }
 
 model Narration {
-  id              String    @id @default(cuid())
-  slideId         Int
-  slide           Slide?     @relation(fields: [slideId], references: [id], onDelete: Cascade)
-  language        String    @default("en")
-  text            String    @db.Text
-  model           String?   // e.g., "gemini-1.5-flash"
-  voiceId         String?   // if avatar TTS differs
-  status          String?   // "ready" | "queued" | "error"
-  error           String?   @db.Text
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  version         Int       @default(1)   
-  isActive        Boolean   @default(true) 
+  id        String   @id @default(cuid())
+  slideId   Int
+  language  String   @default("en")
+  text      String
+  model     String?
+  voiceId   String?
+  status    String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  version   Int      @default(1)
+  isActive  Boolean  @default(true)
+  slide     Slide    @relation(fields: [slideId], references: [id], onDelete: Cascade)
 }
 
 model Credentials {
   id       String @id @default(cuid())
   username String @unique
-  password String // This will store the hashed password
+  password String
 }
