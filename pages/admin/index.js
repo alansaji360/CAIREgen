@@ -368,28 +368,66 @@ export default function AdminPage() {
     appendLog(`Saved narration for slide ${slideId}`);
   }
 
-  async function regenerateNarration(deckId, slideId) {
+  async function regenerateNarration(deckId, slideId, slide) {
     setRegenPending(p => ({ ...p, [slideId]: true }));
-    const prev = deckNarrations[deckId]?.bySlide?.[slideId];
+    
+    const text = deckNarrations[deckId]?.bySlide?.[slideId];
 
     try {
-      const newText = `Auto-regenerated narration for slide ${slideId}.`;
+      const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+      if (!GEMINI_API_KEY) throw new Error("Missing Gemini API Key");
+      
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+      const instructions =
+      `Generate an engaging narration script in English based on the following slide: ${slide}. ` +
+      `For each slide, create one in-depth narrative paragraph (4-6 sentences) that expands beyond just restating the bullets by weaving them into a cohesive lesson.` +
+      `thoroughly explain the topic with historical or contextual background, incorporate relevant examples or analogies, discuss implications or real-world applications, and end with key takeaways or reflective questions. Additionally make sure to explain any math or equations that are pertinant to the discussion. ` +
+      `Ensure the tone is informative, academic yet approachable, like a professor teaching a class, and make it flow naturally for spoken narration. ` +
+      `Convert all numerical values, hexadecimal notations, addresses, or technical figures to their full spoken-word form for clear pronunciation (e.g., "0x0008" as "hex zero zero zero eight", "1024" as "one thousand twenty-four"). ` +
+      `Additionally convert coding variable names to full spoken-word form. additionaly when describing functions, use f of x for f(x) and other similar notation.` +
+      `Do not start any narrations mentioning the page/slide number. Start each slide naturally in the manner of a college professor.` +
+      `Output ONLY the narration text, No Json, no markdown, no "Here is the script for slide 1". Just the raw narration text.`;
+
+      const prompt = `Role: Academic Lecturer and Professor.
+      Task: Write a natural, spoken-word narration script for a single presentation slide.
+      
+      Slide Title: ${slide.title}
+      Slide Content: ${slide.content}}
+      
+      Instructions` + instructions;
+
+      const result = await model.generateContent(prompt);
+      const newText = result.response.text().trim();
+
+      // Update local state
       setSlideText(deckId, slideId, newText);
 
-      await fetch('/api/prisma/narration', {
+      // Prisma
+      const response = await fetch('/api/prisma/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slideId, text: newText, language: language || 'en', overwrite: true })
+        body: JSON.stringify({ 
+          slideId, 
+          text: newText, 
+          language: 'en',
+          overwrite: true 
+        })
       });
 
-      appendLog(`Regenerated narration for slide ${slideId}`);
+      if (!response.ok) throw new Error("Database save failed");
+
+      appendLog(`Successfully regenerated narration for Slide #${slideId}`);
     } catch (e) {
-      setSlideText(deckId, slideId, prev || 'Narration unavailable for this slide.');
+      // Revert to previous text if it fails
+      setSlideText(deckId, slideId, text || 'Narration unavailable.');
       appendLog(`Regenerate error: ${e.message}`);
     } finally {
       setRegenPending(p => ({ ...p, [slideId]: false }));
     }
   }
+  
 
   const filteredDecks = decks.filter(deck =>
     deck.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -831,7 +869,7 @@ export default function AdminPage() {
                           
                           return (
                             <li key={slideId} style={{ background: '#fff', padding: '0.5rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                                 
                                 {/* Thumbnail Component */}
                                 <SlideThumbnail 
@@ -843,19 +881,20 @@ export default function AdminPage() {
 
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                                    Slide #{index + 1} (DB ID: {slideId}) {slide.topic ? `- ${slide.topic}` : ''}
+                                    Slide #{index + 1} {slide.topic ? `- ${slide.topic}` : ''}
                                   </div>
                                   <textarea
                                     value={text}
                                     onChange={(e) => setSlideText(deck.id, slideId, e.target.value)}
                                     rows={3}
-                                    style={{ width: '100%', border: '1px solid #ccc', borderRadius: 4, padding: 8, fontFamily: 'inherit' }}
+                                    style={{ width: '100%', border: '1px solid #ccc', borderRadius: 4, padding: 8, resize: 'vertical', minHeight: '60px', maxWidth: '97%' }}
+                                    
                                   />
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center', alignItems: 'stretch', paddingRight: 20}}>
                                   <button
-                                    onClick={() => regenerateNarration(deck.id, slideId)}
+                                    onClick={() => regenerateNarration(deck.id, slideId, slide)}
                                     disabled={!!regenPending[slideId]}
                                     style={{ padding: '6px 10px', backgroundColor: '#ffc107', color: '#000', border: 'none', borderRadius: 4, cursor: 'pointer' }}
                                   >

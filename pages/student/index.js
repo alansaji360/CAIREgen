@@ -299,7 +299,7 @@ const styles = {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: '1rem',
     boxSizing: 'border-box',
@@ -307,7 +307,7 @@ const styles = {
     backgroundColor: 'rgba(255,255,255,0.8)',
   },
   slideImageSection: {
-    flex: '1 1 0%',
+    flex: '1',
     minHeight: 0,
     width: '100%',
     display: 'flex',
@@ -316,18 +316,18 @@ const styles = {
     overflow: 'hidden',
   },
   slideImage: {
-    display: 'block',     // Removes extra bottom whitespace
-    maxWidth: '75%',     // Don't get wider than the box
-    maxHeight: '75%',    // Don't get taller than the image section
-    width: 'auto',        // Maintain aspect ratio
-    height: 'auto',       // Maintain aspect ratio
-    objectFit: 'contain', // The "Magic" property: fits the whole image inside
+    display: 'block',    
+    maxWidth: '75%',     
+    maxHeight: '75%',    
+    width: 'auto',        
+    height: 'auto',       
+    objectFit: 'contain', 
     borderRadius: '10px',
     transition: 'transform 0.3s ease',
   },
   slideNarration: {
-    flex: '0 0 auto', // Don't let the text grow into the image's space
-    maxHeight: '150px', // Prevent text from eating the whole slide
+    flex: '0 0 auto', 
+    maxHeight: '150px',
     width: '90%',
     fontSize: '1rem',
     fontStyle: 'italic',
@@ -809,7 +809,7 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, setCurren
   
   return (
   <div ref={slideshowRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}> {/* New wrapper for full sizing */}
+    <div style={{ width: '100%', height: isFullscreen ? '100vh' : '840px', position: 'relative' }}> {/* New wrapper for full sizing */}
       <Slide
         ref={slideRef}
         duration={0}
