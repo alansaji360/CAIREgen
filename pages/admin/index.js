@@ -10,6 +10,83 @@ const figtree = Figtree({
   variable: '--font-figtree',
 });
 
+const SlideThumbnail = ({ slide, fileUrl, index, onClick }) => {
+  const [thumb, setThumb] = useState(slide.image || null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadFromBlob() {
+      // Only attempt to render if there's no DB image and we have a fileUrl
+      if (!thumb && fileUrl) {
+        setLoading(true);
+        try {
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+
+          const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+          const page = await pdf.getPage(index + 1);
+          
+          // Lower scale (0.4 or 0.5) is perfect for Admin thumbnails
+          const viewport = page.getViewport({ scale: 0.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          
+          setThumb(canvas.toDataURL('image/png'));
+        } catch (err) {
+          console.error("Failed to render admin thumbnail:", err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+    loadFromBlob();
+  }, [fileUrl, thumb, index]);
+
+  if (loading) {
+    return <div style={thumbStyles.placeholder}>Rendering...</div>;
+  }
+
+  if (!thumb) {
+    return <div style={thumbStyles.placeholder}>No Image</div>;
+  }
+
+  return (
+    <img
+      src={thumb}
+      alt={`Slide ${index + 1}`}
+      style={thumbStyles.image}
+      onClick={() => onClick(thumb)}
+      title="Click to expand"
+    />
+  );
+};
+
+const thumbStyles = {
+  image: { 
+    width: 120, 
+    height: 'auto', 
+    borderRadius: 4, 
+    cursor: 'pointer', 
+    border: '1px solid #eee',
+    transition: 'transform 0.2s'
+  },
+  placeholder: { 
+    width: 120, 
+    height: 70, 
+    background: '#e9ecef', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    borderRadius: 4, 
+    fontSize: 11, 
+    color: '#6c757d', 
+    border: '1px solid #dee2e6' 
+  }
+};
 
 export default function AdminPage() {
   const [decks, setDecks] = useState([]);
@@ -43,7 +120,7 @@ export default function AdminPage() {
   const fetchDecks = async () => {
     setLoading(true);
     try {
-      const response = await fetch('../api/admin/prisma/decks/decks');
+      const response = await fetch('/api/admin/prisma/decks/decks');
       if (!response.ok) throw new Error('Failed to fetch decks');
 
 
@@ -67,7 +144,7 @@ export default function AdminPage() {
     appendLog(`🗑️ Deleting deck: ${deckTitle}...`);
 
     try {
-      const response = await fetch(`../api/admin/prisma/decks/${deckId}`, {
+      const response = await fetch(`/api/admin/prisma/decks/${deckId}`, {
         method: 'DELETE'
       });
 
@@ -97,7 +174,7 @@ export default function AdminPage() {
     appendLog(`Deleting ${selectedIds.length} decks...`);
 
     try {
-      const response = await fetch('../api/admin/prisma/decks/bulk-delete', {
+      const response = await fetch('/api/admin/prisma/decks/bulk-delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: selectedIds })
@@ -123,7 +200,7 @@ export default function AdminPage() {
 
   const fetchQuestions = async (deckId) => {
     try {
-      const response = await fetch(`../api/admin/prisma/questions/${deckId}`);
+      const response = await fetch(`/api/admin/prisma/questions/${deckId}`);
       if (!response.ok) throw new Error('Failed to fetch questions');
       const questions = await response.json();
       setDeckQuestions((prev) => ({ ...prev, [deckId]: questions }));
@@ -139,7 +216,7 @@ export default function AdminPage() {
     appendLog(`Deleting question ${questionId}...`);
 
     try {
-      const response = await fetch(`../api/admin/prisma/questions/${questionId}`, {
+      const response = await fetch(`/api/admin/prisma/questions/${questionId}`, {
         method: 'DELETE'
       });
 
@@ -197,21 +274,28 @@ export default function AdminPage() {
   };
 
   async function fetchNarrations(deckId, lang) {
-    const params = new URLSearchParams({ deckId: String(deckId) });
-    if (lang) params.set('language', lang);
-    const res = await fetch(`../api/prisma/narration?${params.toString()}`);
+    // Use 'en' as the default fallback
+    const targetLang = lang || 'en'; 
+    const params = new URLSearchParams({ 
+      deckId: String(deckId),
+      language: targetLang 
+    });
+
+    const res = await fetch(`/api/prisma/narration?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch narrations');
     const { narrations } = await res.json();
 
     const bySlide = {};
-    for (const n of narrations) bySlide[Number(n.slideId)] = n.text;
+    // Standardize ID to Number for consistent lookup
+    for (const n of narrations) {
+      bySlide[Number(n.slideId)] = n.text;
+    }
 
     setDeckNarrations(prev => ({
       ...prev,
-      [deckId]: { bySlide, count: narrations.length }
+      [deckId]: { bySlide, count: narrations.length, currentLang: targetLang }
     }));
   }
-
   function setSlideText(deckId, slideId, text) {
     setDeckNarrations(prev => ({
       ...prev,
@@ -226,7 +310,7 @@ export default function AdminPage() {
     const text = (deckNarrations[deckId]?.bySlide?.[slideId] || '').trim();
     if (!text) return;
 
-    const res = await fetch('../api/prisma/narration', {
+    const res = await fetch('/api/prisma/narration', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slideId, text, language: language || 'en', overwrite: false })
@@ -243,7 +327,7 @@ export default function AdminPage() {
       const newText = `Auto-regenerated narration for slide ${slideId}.`;
       setSlideText(deckId, slideId, newText);
 
-      await fetch('../api/prisma/narration', {
+      await fetch('/api/prisma/narration', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slideId, text: newText, language: language || 'en', overwrite: true })
@@ -280,7 +364,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = async () => {
-    await fetch('../api/auth/logout');
+    await fetch('/api/auth/logout');
     router.push('/login');
   };
 
@@ -296,7 +380,7 @@ export default function AdminPage() {
 
   return (
     <div className={figtree.variable} style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto', fontFamily: 'var(--font-figtree)', background: 'linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%)', borderRadius: '15px', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
-      {/* NEW: Image Modal */}
+      {/* Image Modal */}
       {modalImageUrl && (
         <div
           onClick={() => setModalImageUrl(null)}
@@ -304,27 +388,54 @@ export default function AdminPage() {
             position: 'fixed',
             top: 0,
             left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(231, 231, 231, 0.85)',
+            backdropFilter: 'blur(5px)', // Modern blurred background
             display: 'flex',
+            flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 1000,
-            cursor: 'pointer'
+            zIndex: 2000, // Ensure it's above everything
+            cursor: 'zoom-out',
+            animation: 'fadeIn 0.2s ease-out'
           }}
         >
-          <img
-            src={modalImageUrl}
-            alt="Expanded slide"
-            style={{
-              maxWidth: '90%',
-              maxHeight: '90%',
-              boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-              borderRadius: '8px'
-            }}
-          />
-          <span style={{ position: 'absolute', top: 20, right: 30, fontSize: '2rem', color: 'white' }}>&times;</span>
+          <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '85%' }}>
+            <img
+              src={modalImageUrl}
+              alt="Expanded slide"
+              style={{
+                // These two lines force the small image to stretch
+                width: '30vw',       // Force it to be 80% of the screen width
+                height: 'auto',      // Maintain aspect ratio while stretching
+                
+                // Safety caps
+                maxHeight: '90vh',   
+                objectFit: 'contain',                
+                // Optional: Keep it slightly sharper when stretching
+                imageRendering: 'pixelated' 
+              }}
+            />
+            <div style={{
+              position: 'absolute',
+              top: '-40px',
+              right: '0',
+              color: 'white',
+              fontSize: '14px',
+              fontFamily: 'var(--font-figtree)'
+            }}>
+              Click anywhere to close
+            </div>
+          </div>
+          
+          {/* CSS for the fade-in effect */}
+          <style jsx>{
+            `@keyframes fadeIn {
+              from { opacity: 0; transform: scale(0.95); }
+              to { opacity: 1; transform: scale(1); }
+            }`
+          }</style>
         </div>
       )}
 
@@ -555,7 +666,7 @@ export default function AdminPage() {
               </div>
 
 
-              {/* Expand/Collapse for Questions */}
+              {/* Expand/Collapse for Questions/Narrations */}
               <div style={{ marginTop: '1rem' }}>
                 <button
                   onClick={() => {
@@ -602,78 +713,6 @@ export default function AdminPage() {
                 >
                   {expandedNarrDeck === deck.id ? 'Hide Narrations' : 'Show Narrations'}
                 </button>
-
-
-                {expandedNarrDeck === deck.id && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                    <h4>
-                      Narrations ({deckNarrations[deck.id]?.count ?? 0})
-                    </h4>
-
-
-                    {Array.isArray(deck.slides) && deck.slides.length > 0 ? (
-                      <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {/* NEW: Modified loop to include thumbnails */}
-                        {deck.slides.map((slide) => {
-                          const slideId = Number(slide.id);
-                          const text = deckNarrations[deck.id]?.bySlide?.[slideId] ?? 'Narration unavailable for this slide.';
-                          return (
-                            <li key={slideId} style={{ background: '#fff', padding: '0.5rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                                {/* NEW: Expandable thumbnail image. Assumes 'slide.imageUrl' property exists. */}
-                                {slide.image ? (
-                                  <img
-                                    src={slide.image}
-                                    alt={`Thumbnail for Slide ${slideId}`}
-                                    style={{ width: 120, height: 'auto', borderRadius: 4, cursor: 'pointer', border: '1px solid #eee' }}
-                                    onClick={() => setModalImageUrl(slide.image)}
-                                    title="Click to expand"
-                                  />
-                                ) : (
-                                  <div style={{ width: 120, height: 70, background: '#e9ecef', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 12, color: '#6c757d', textAlign: 'center', border: '1px solid #dee2e6' }}>No Image</div>
-                                )}
-
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                                    Slide #{slideId}
-                                  </div>
-                                  <textarea
-                                    value={text}
-                                    onChange={(e) => setSlideText(deck.id, slideId, e.target.value)}
-                                    rows={3}
-                                    style={{ width: '100%', border: '1px solid #ccc', borderRadius: 4, padding: 8 }}
-                                  />
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                  <button
-                                    onClick={() => regenerateNarration(deck.id, slideId)}
-                                    disabled={!!regenPending[slideId]}
-                                    style={{ padding: '6px 10px', backgroundColor: '#ffc107', color: '#000', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                                    title="Regenerate narration for this slide"
-                                  >
-                                    {regenPending[slideId] ? 'Regenerating…' : 'Regen'}
-                                  </button>
-
-                                  <button
-                                    onClick={() => saveNarration(deck.id, slideId)}
-                                    style={{ padding: '6px 10px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
-                                    title="Save edited narration"
-                                  >
-                                    Save
-                                  </button>
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <p>No slides in this deck.</p>
-                    )}
-                  </div>
-                )}
-
 
                 {expandedDeck === deck.id && deckQuestions[deck.id] && (
                   <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
@@ -727,6 +766,67 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
+
+                {expandedNarrDeck === deck.id && (
+                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+                    <h4>Narrations ({deckNarrations[deck.id]?.count ?? 0})</h4>
+
+                    {Array.isArray(deck.slides) && deck.slides.length > 0 ? (
+                      <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {deck.slides.map((slide, index) => {
+                          const slideId = Number(slide.id);
+                          const text = deckNarrations[deck.id]?.bySlide?.[slideId] ?? 'Narration unavailable for this slide.';
+                          
+                          return (
+                            <li key={slideId} style={{ background: '#fff', padding: '0.5rem', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                                
+                                {/* Thumbnail Component */}
+                                <SlideThumbnail 
+                                  slide={slide} 
+                                  fileUrl={deck.fileUrl} 
+                                  index={index} 
+                                  onClick={setModalImageUrl} 
+                                />
+
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
+                                    Slide #{index + 1} (DB ID: {slideId}) {slide.topic ? `- ${slide.topic}` : ''}
+                                  </div>
+                                  <textarea
+                                    value={text}
+                                    onChange={(e) => setSlideText(deck.id, slideId, e.target.value)}
+                                    rows={3}
+                                    style={{ width: '100%', border: '1px solid #ccc', borderRadius: 4, padding: 8, fontFamily: 'inherit' }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  <button
+                                    onClick={() => regenerateNarration(deck.id, slideId)}
+                                    disabled={!!regenPending[slideId]}
+                                    style={{ padding: '6px 10px', backgroundColor: '#ffc107', color: '#000', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                                  >
+                                    {regenPending[slideId] ? '...' : 'Regen'}
+                                  </button>
+
+                                  <button
+                                    onClick={() => saveNarration(deck.id, slideId)}
+                                    style={{ padding: '6px 10px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p>No slides in this deck.</p>
+                    )}
+                  </div>
+                )}                
               </div>
             </div>
           ))}

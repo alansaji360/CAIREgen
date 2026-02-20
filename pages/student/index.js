@@ -299,14 +299,16 @@ const styles = {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     padding: '1rem',
     boxSizing: 'border-box',
+    overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.8)',
   },
   slideImageSection: {
-    flex: '1 1 auto',
+    flex: '1 1 0%',
+    minHeight: 0,
     width: '100%',
     display: 'flex',
     justifyContent: 'center',
@@ -314,26 +316,28 @@ const styles = {
     overflow: 'hidden',
   },
   slideImage: {
-    maxWidth: '100%',
-    maxHeight: '100%',
-    objectFit: 'contain',
+    display: 'block',     // Removes extra bottom whitespace
+    maxWidth: '75%',     // Don't get wider than the box
+    maxHeight: '75%',    // Don't get taller than the image section
+    width: 'auto',        // Maintain aspect ratio
+    height: 'auto',       // Maintain aspect ratio
+    objectFit: 'contain', // The "Magic" property: fits the whole image inside
     borderRadius: '10px',
     transition: 'transform 0.3s ease',
   },
   slideNarration: {
-    flex: '0 0 auto',
-    minHeight: '10%',
+    flex: '0 0 auto', // Don't let the text grow into the image's space
+    maxHeight: '150px', // Prevent text from eating the whole slide
+    width: '90%',
     fontSize: '1rem',
     fontStyle: 'italic',
     color: '#000',
     backgroundColor: '#e9ecef',
-    padding: '0.5rem 1rem',
-    borderRadius: '5px',
-    maxWidth: '100%',
+    padding: '1rem',
+    borderRadius: '8px',
     textAlign: 'center',
-    overflowY: 'auto',
+    overflowY: 'auto', // Scrollbar if the script is long
     boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)',
-    pointerEvents: 'none',
   },
   controls: {
     marginTop: '1.25rem',
@@ -392,8 +396,8 @@ const styles = {
     boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
   },
   avatarOverlayWrapperSmall: {
-    position: 'sticky',
-    bottom: '20px',
+    position: 'absolute',
+    top: '20px',
     left: '20px',
     width: '150px',
     zIndex: 10,
@@ -401,8 +405,8 @@ const styles = {
     transition: 'width 0.3s ease',
   },
   avatarOverlayWrapperLarge: {
-    position: 'sticky',
-    bottom: '20px',
+    position: 'absolute',
+    top: '20px',
     left: '20px',
     width: '200px',
     zIndex: 10,
@@ -858,7 +862,7 @@ const AvatarOverlay = ({ videoRef, isExpanded, onToggleExpand }) => {
   );
 };
 
-const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded, isFullscreen, selectedLanguage }) => {
+const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, setCurrentSlide, slideshowRef, slideRef, videoRef, isAvatarExpanded, onToggleAvatarExpanded, isFullscreen, selectedLanguage }) => {
   const t = TRANSLATIONS[selectedLanguage] || TRANSLATIONS.en;
   
   return (
@@ -876,8 +880,11 @@ const SlideshowNarrator = ({ slideData, narrationScript, currentSlide, slideshow
         autoplay={false}
         canSwipe={false}
         defaultIndex={currentSlide}
-        key={currentSlide + narrationScript.length}
+        // key={currentSlide + narrationScript.length}
         style={{ height: '100%', width: '100%' }}
+        onChange={(oldIndex, newIndex) => setCurrentSlide(newIndex)}
+        key={slideData.length} // Simplified key to prevent unneeded re-mounts
+        containerStyle={{ height: '100%', width: '100%' }}
       >
         {slideData.map((slide, index) => (
           <div key={`slide-${index}`} style={styles.slideContainer}>
@@ -965,7 +972,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const generatingRef = useRef(false);
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [isReady, setIsReady] = useState(false); // tracks if script is fully generated
+  const [isReady, setIsReady] = useState(false); // tra<cks if script is fully generated
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isRestarting, setIsRestarting] = useState(false);
@@ -1078,24 +1085,42 @@ export default function Home() {
 
   const goToSlide = useCallback((slideIndex) => {
     if (slideIndex < 0 || slideIndex >= slideData.length) return;
+    
+    // Interrupt previous speech
     if (avatarRef.current && isAvatarReady) {
       avatarRef.current.interrupt();
     }
+
+    // Update State
     setCurrentSlide(slideIndex);
+
+    // Tell the library to move (only if the state change didn't come FROM the library)
+    if (slideRef.current) {
+      slideRef.current.goTo(slideIndex);
+    }
+
+    // Handle Narration
     if (isPresenting && narrationScript[slideIndex] && isAvatarReady && !isPaused) {
       speak(narrationScript[slideIndex]);
     }
-  }, [slideData.length, isPresenting, narrationScript, isAvatarReady, isPaused, speak, appendLog]);
-
+  }, [slideData.length, isPresenting, narrationScript, isAvatarReady, isPaused, speak]);
+  
   const goToNextSlide = useCallback(() => {
-    const nextIndex = currentSlide + 1;
-    if (nextIndex < slideData.length) {
-      goToSlide(nextIndex);
-    } else {
-      appendLog('End of presentation');
-      setIsPresenting(false);
-    }
-  }, [currentSlide, slideData.length, goToSlide, appendLog]);
+    setCurrentSlide((prev) => {
+      const nextIndex = prev + 1;
+      if (nextIndex < slideData.length) {
+        goToSlide(nextIndex);
+        return prev; // goToSlide handles the state update
+      } else {
+        // Only log if we were actually presenting and just finished
+        if (isPresenting) {
+          appendLog('Presentation completed.');
+          setIsPresenting(false);
+        }
+        return prev;
+      }
+    });
+  }, [slideData.length, goToSlide, isPresenting, appendLog]);
 
   const goToPrevSlide = useCallback(() => {
     const prevIndex = currentSlide - 1;
@@ -1208,10 +1233,25 @@ export default function Home() {
         setIsPresenting(false);
       });
 
+      // avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
+      //   if (isPresenting && currentSlide < slideData.length - 1) {
+      //     setTimeout(() => goToNextSlide(), 1500);
+      //   }
+      // });
+
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => {
-        if (isPresenting && currentSlide < slideData.length - 1) {
-          setTimeout(() => goToNextSlide(), 1500);
-        }
+        // Use functional updates or refs to ensure we have the absolute latest index
+        setCurrentSlide((prevIndex) => {
+          if (isPresenting && prevIndex < slideData.length - 1) {
+            // Only move forward if we aren't already at the end
+            setTimeout(() => goToNextSlide(), 1500);
+            return prevIndex; 
+          } else if (prevIndex >= slideData.length - 1) {
+            // We are actually at the end
+            return prevIndex;
+          }
+          return prevIndex;
+        });
       });
 
       await avatar.createStartAvatar({
@@ -1517,7 +1557,7 @@ export default function Home() {
 
           <div style={styles.container}>
             <div ref={fullscreenRef} style={isFullscreen ? styles.slideshowBoxFullscreen : styles.slideshowBox}>
-              <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} isFullscreen={isFullscreen} selectedLanguage={selectedLanguage} />
+              <SlideshowNarrator slideData={slideData} narrationScript={narrationScript} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} slideshowRef={slideshowRef} slideRef={slideRef} videoRef={videoRef} isAvatarExpanded={isAvatarExpanded} onToggleAvatarExpanded={toggleAvatarExpanded} isFullscreen={isFullscreen} selectedLanguage={selectedLanguage} />
             </div>
             <SlideMenu slideData={slideData} slideSummaries={slideSummaries} currentSlide={currentSlide} goToSlide={goToSlide} selectedLanguage={selectedLanguage} />
           </div>

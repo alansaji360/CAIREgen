@@ -128,7 +128,7 @@ async function translateNarrationsClient(sourceScript, targetLanguage, appendLog
     },
   });
 
-  appendLog(`Translating all ${sourceScript.length} slides to ${targetLanguage}...`);
+  // appendLog(`Translating all ${sourceScript.length} slides to ${targetLanguage}...`);
 
   const prompt = `Translate the following JSON array of presentation narrations into ${targetLanguage}. 
     Maintain the academic professor tone and ensure technical terms are translated accurately.
